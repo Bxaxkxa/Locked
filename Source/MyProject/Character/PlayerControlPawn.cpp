@@ -7,6 +7,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "MyProject/Room/MainRoomTile.h"
+#include "MyProject/RandomGenRoom.h"
 
 // Sets default values
 APlayerControlPawn::APlayerControlPawn()
@@ -47,10 +48,6 @@ void APlayerControlPawn::SpawnControlledCharacter()
 
 		SetActorLocation(CurrentRoom->GetActorLocation());
 
-		////FAttachmentTransformRules AttachmentRules = FAttachmentTransformRules::FAttachmentTransformRules(EAttachmentRule;
-		//FAttachmentTransformRules AttachmentRules = FAttachmentTransformRules::FAttachmentTransformRules(EAttachmentRule::KeepWorld, EAttachmentRule::KeepWorld, EAttachmentRule::KeepWorld, false);
-		//AttachToActor(ControlledCharacter, AttachmentRules);
-
 		ControlledCharacter->ControllerPawn = this;
 	}
 }
@@ -64,7 +61,9 @@ void APlayerControlPawn::BeginPlay()
 
 	SpawnControlledCharacter();
 
-	TargetCameraLocation = GetActorLocation();
+	FollowTarget = ControlledCharacter;
+
+	RandomRoomGenDeck = Cast<ARandomGenRoom>(UGameplayStatics::GetActorOfClass(GetWorld(), ARandomGenRoom::StaticClass()));
 }
 
 // Called every frame
@@ -73,14 +72,9 @@ void APlayerControlPawn::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	FVector ResultTarget;
-	if (bIsFollowBehaviour && ControlledCharacter)
-	{
-		ResultTarget = FMath::Lerp<FVector>(GetActorLocation(), ControlledCharacter->GetActorLocation(), DeltaTime * CameraFollowSpeed);
 
-		SetActorLocation(ResultTarget);
-		return;
-	}
-	ResultTarget = FMath::Lerp<FVector>(GetActorLocation(), TargetCameraLocation, DeltaTime * CameraFollowSpeed);
+	ResultTarget = FMath::Lerp<FVector>(GetActorLocation(), FollowTarget->GetActorLocation(), DeltaTime * CameraFollowSpeed);
+
 	SetActorLocation(ResultTarget);
 }
 
@@ -89,62 +83,165 @@ void APlayerControlPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, FString>("Left", IE_Pressed, this, &APlayerControlPawn::MoveCharacterTo, "NextLeft");
-	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, FString>("Right", IE_Pressed, this, &APlayerControlPawn::MoveCharacterTo, "NextRight");
-	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, FString>("Up", IE_Pressed, this, &APlayerControlPawn::MoveCharacterTo, "NextUp");
-	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, FString>("Down", IE_Pressed, this, &APlayerControlPawn::MoveCharacterTo, "NextDown");
+	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, ETileDirection>("Left", IE_Pressed, this, &APlayerControlPawn::ManageMovement, ETileDirection::NextLeft);
+	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, ETileDirection>("Right", IE_Pressed, this, &APlayerControlPawn::ManageMovement, ETileDirection::NextRight);
+	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, ETileDirection>("Up", IE_Pressed, this, &APlayerControlPawn::ManageMovement, ETileDirection::NextUp);
+	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, ETileDirection>("Down", IE_Pressed, this, &APlayerControlPawn::ManageMovement, ETileDirection::NextDown);
 
 	PlayerInputComponent->BindAction("ChangeBehaviour", IE_Pressed, this, &APlayerControlPawn::ChangeCameraBehaviour);
+
+	PlayerInputComponent->BindAction("PlaceTile", IE_Pressed, this, &APlayerControlPawn::PlaceRoomTile);
+
+	PlayerInputComponent->BindAction("DrawTile", IE_Pressed, this, &APlayerControlPawn::DrawRoomTile);
+	PlayerInputComponent->BindAction("RotateTile", IE_Pressed, this, &APlayerControlPawn::RotateRoomTile);
 }
 
-void APlayerControlPawn::MoveCharacterTo(FString MoveToDirection)
+void APlayerControlPawn::ManageMovement(ETileDirection MoveToDirection)
 {
-	ARoomTile* TargetRoom = CurrentRoom->NeighbourRoom[MoveToDirection];
-	if (!TargetRoom)
-		return;
+	ARoomTile* TargetRoom = CurrentRoom->NeighbourRoom[static_cast<int>(MoveToDirection)].GetNextRoom();
 
-	if (!bIsFollowBehaviour)
+	switch (CurrentMovementInputState)
 	{
+	case EMovementInputState::E_CharMovement:
+		MoveCharacterTo(TargetRoom);
+		break;
+	case EMovementInputState::E_TileMovement:
 		MoveCameraTo(TargetRoom);
-		return;
+		break;
+	case EMovementInputState::E_TilePlacement:
+		MovePlacedTile(CurrentRoom->NeighbourRoom[static_cast<int>(MoveToDirection)], MoveToDirection);
+		break;
+	default:
+		break;
 	}
+}
 
-	if (!bStillInMove)
+void APlayerControlPawn::MoveCameraTo(ARoomTile* MoveToTile)
+{
+	if (!MoveToTile)
+		return;
+
+	FollowTarget = MoveToTile;
+	CurrentRoom = MoveToTile;
+}
+
+void APlayerControlPawn::MoveCharacterTo(ARoomTile* MoveToTile)
+{
+	if (!bStillInMove && MoveToTile)
 	{
 		bStillInMove = true;
+		ControlledCharacter->CharacterMoveTo(MoveToTile);
 
-		ControlledCharacter->CharacterMoveTo(TargetRoom);
-
-		CurrentRoom = TargetRoom;
+		CurrentRoom = MoveToTile;
 	}
 }
 
-void APlayerControlPawn::MoveCameraTo(ARoomTile* MoveToDirection)
+void APlayerControlPawn::MovePlacedTile(FDoorWay DoorWay, ETileDirection MoveToDirection)
 {
-	TargetCameraLocation = MoveToDirection->GetActorLocation();
-	CurrentRoom = MoveToDirection;
-	/*if (MoveToDirection == "NextLeft")
+	if (DoorWay.IsThereDoorway() && !DoorWay.GetNextRoom())
 	{
-		TargetCameraLocation = GetActorLocation() + FVector(0.0f, -400.0f, 0.0f);
+		bool IsGoingLeft = MoveToDirection == ETileDirection::NextLeft;
+		bool IsGoingRight = MoveToDirection == ETileDirection::NextRight;
+		bool IsGoingUp = MoveToDirection == ETileDirection::NextUp;
+		bool IsGoingDown = MoveToDirection == ETileDirection::NextDown;
+		FVector AddPosition = FVector((IsGoingUp * 400.0f) + (IsGoingDown * -400.0f), (IsGoingRight * 400.0f) + (IsGoingLeft * -400.0f), 0.0f);
+		DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + AddPosition);
+
+		LastPlacedDirection = MoveToDirection;
+		DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
+		/*	switch (MoveToDirection)
+			{
+			case ETileDirection::NextLeft:
+				break;
+			case ETileDirection::NextRight:
+				DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + FVector(0.0f, 400.0f, 0.0f));
+				break;
+			case ETileDirection::NextUp:
+				DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + FVector(400.0f, 0.0f, 0.0f));
+				break;
+			case ETileDirection::NextDown:
+				DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + FVector(-400.0f, 0.0f, 0.0f));
+				break;
+			}*/
 	}
-	else if (MoveToDirection == "NextRight")
-	{
-		TargetCameraLocation = GetActorLocation() + FVector(0.0f, 400.0f, 0.0f);
-	}
-	else if (MoveToDirection == "NextUp")
-	{
-		TargetCameraLocation = GetActorLocation() + FVector(400.0f, 0.0f, 0.0f);
-	}
-	else if (MoveToDirection == "NextDown")
-	{
-		TargetCameraLocation = GetActorLocation() + FVector(-400.0f, 0.0f, 0.0f);
-	}*/
+
 }
 
 void APlayerControlPawn::ChangeCameraBehaviour()
 {
-	bIsFollowBehaviour = !bIsFollowBehaviour;
-	CurrentRoom = ControlledCharacter->CurrentRoom;
-	TargetCameraLocation = CurrentRoom->GetActorLocation();
+	if (bStillInMove)
+		return;
+
+	switch (CurrentMovementInputState)
+	{
+	case EMovementInputState::E_CharMovement:
+		CurrentMovementInputState = EMovementInputState::E_TileMovement;
+		CurrentRoom = ControlledCharacter->CurrentRoom;
+		FollowTarget = CurrentRoom;
+		break;
+	case EMovementInputState::E_TileMovement:
+		CurrentMovementInputState = EMovementInputState::E_CharMovement;
+		FollowTarget = ControlledCharacter;
+		break;
+	case EMovementInputState::E_TilePlacement:
+		break;
+	default:
+		break;
+	}
+}
+
+void APlayerControlPawn::DrawRoomTile()
+{
+	if (!(CurrentMovementInputState == EMovementInputState::E_CharMovement))
+	{
+		return;
+	}
+
+	FollowTarget = DrawedRoomTile = RandomRoomGenDeck->DrawTile();
+
+	for (int i = 0; i < static_cast<int>(ETileDirection::NUM); i++)
+	{
+		if (CurrentRoom->NeighbourRoom[i].IsThereDoorway() && !CurrentRoom->NeighbourRoom[i].GetNextRoom())
+		{
+			bool IsGoingLeft = ETileDirection(i) == ETileDirection::NextLeft;
+			bool IsGoingRight = ETileDirection(i) == ETileDirection::NextRight;
+			bool IsGoingUp = ETileDirection(i) == ETileDirection::NextUp;
+			bool IsGoingDown = ETileDirection(i) == ETileDirection::NextDown;
+			FVector AddPosition = FVector((IsGoingUp * 400.0f) + (IsGoingDown * -400.0f), (IsGoingRight * 400.0f) + (IsGoingLeft * -400.0f), 0.0f);
+			DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + AddPosition);
+			LastPlacedDirection = ETileDirection(i);
+			DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
+		}
+	}
+	CurrentMovementInputState = EMovementInputState::E_TilePlacement;
+}
+
+void APlayerControlPawn::PlaceRoomTile()
+{
+	if (!DrawedRoomTile)
+	{
+		return;
+	}
+
+	CurrentRoom->NeighbourRoom[static_cast<int>(LastPlacedDirection)].SetNextRoom(DrawedRoomTile);
+
+	DrawedRoomTile->CheckNeightbourRooms();
+
+	MoveCharacterTo(DrawedRoomTile);
+
+	DrawedRoomTile = nullptr;
+
+	FollowTarget = ControlledCharacter;
+
+	CurrentMovementInputState = EMovementInputState::E_CharMovement;
+}
+
+void APlayerControlPawn::RotateRoomTile()
+{
+	if (DrawedRoomTile)
+	{
+		DrawedRoomTile->RotateRoomPlacement();
+		DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
+	}
 }
 

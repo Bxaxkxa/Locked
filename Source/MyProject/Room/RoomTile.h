@@ -4,36 +4,40 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "MyProject/Private/Struct/DoorWayStruct.h"
+#include "MyProject/Enum/DirectionEnum.h"
 #include "RoomTile.generated.h"
-
-USTRUCT(BlueprintType)
-struct FDoorWay
-{
-	GENERATED_BODY();
-public:
-	/*UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
-		ARoomTile* NextRoom;*/
-};
 
 UCLASS()
 class MYPROJECT_API ARoomTile : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
+
+public:
 	// Sets default values for this actor's properties
 	ARoomTile();
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		TMap<FString, ARoomTile*> NeighbourRoom;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+		class UBoxComponent* RoomDetectionCollider;
+
+	UPROPERTY(EditAnywhere)
+		FDoorWay NeighbourRoom[ETileDirection::NUM];
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void SpawnDoor() {};
+
+	void CheckNeightbourRooms();
+
+	void SetOppositeRoom(ETileDirection OriginDirection, ARoomTile* OriginRoom);
+
+	void RotateRoomPlacement();
+
+	void CheckConnectionAvailibility(ETileDirection OriginDirection);
 };

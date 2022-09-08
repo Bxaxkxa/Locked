@@ -5,7 +5,6 @@
 
 AMainRoomTile::AMainRoomTile()
 {
-
 }
 
 void AMainRoomTile::BeginPlay()
