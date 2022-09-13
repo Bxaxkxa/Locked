@@ -41,6 +41,10 @@
 				"HoloLens",
 				"Android"
 			]
+		},
+		{
+			"Name": "OnlineSubsystemSteam",
+			"Enabled": true
 		}
 	]
 }

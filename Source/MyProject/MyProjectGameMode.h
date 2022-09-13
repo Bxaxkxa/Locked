@@ -13,6 +13,19 @@ class AMyProjectGameMode : public AGameModeBase
 
 public:
 	AMyProjectGameMode();
+
+	UPROPERTY(Replicated)
+		int NumberOfplayer = 0;
+
+	UPROPERTY(Replicated)
+		int CurrentPlayerTurn = 0;
+
+	virtual void StartPlay() override;
+
+	void NextPlayerTurn();
+
+protected:
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 };
 
 

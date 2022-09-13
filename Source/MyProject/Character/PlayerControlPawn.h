@@ -29,35 +29,37 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 		class USceneComponent* RootScene;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 		class UCameraComponent* FollowCamera;
 
-	UPROPERTY(EditAnywhere, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, Category = Camera, meta = (AllowPrivateAccess = "true"), Replicated)
 		float CameraFollowSpeed;
 
 	UPROPERTY(EditAnywhere, Category = Template, meta = (AllowPrivateAccess = "true"))
 		TSubclassOf<class ALockedCharacter> CharacterTemplate;
 
-	ALockedCharacter* ControlledCharacter;
+	UPROPERTY(Replicated)
+		ALockedCharacter* ControlledCharacter;
 
-	UPROPERTY(EditAnywhere, Category = Template, meta = (AllowPrivateAccess = "true"))
-	class ARandomGenRoom* RandomRoomGenDeck;
+	UPROPERTY(EditAnywhere, Category = Template, meta = (AllowPrivateAccess = "true"), Replicated)
+		class ARandomGenRoom* RandomRoomGenDeck;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated)
 		class ARoomTile* CurrentRoom;
 
-	ARoomTile* DrawedRoomTile;
+	UPROPERTY(Replicated)
+		ARoomTile* DrawedRoomTile;
 
-	void SpawnControlledCharacter();
+	UPROPERTY(Replicated)
+		bool bStillInMove = false;
 
-	bool bStillInMove = false;
+	UPROPERTY(Replicated)
+		EMovementInputState CurrentMovementInputState;
 
-	EMovementInputState CurrentMovementInputState;
+	UPROPERTY(VisibleAnywhere, Replicated)
+		AActor* FollowTarget;
 
-	AActor* FollowTarget;
-
-	FTimerHandle MovementTimer;
+	bool bIsPlayerTurn = false;
 
 	ETileDirection LastPlacedDirection;
 
@@ -72,15 +74,29 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	void SpawnControlledCharacter();
+
 	void ManageMovement(ETileDirection MoveToDirection);
 
 	void MoveCameraTo(ARoomTile* MoveToTile);
 	void MoveCharacterTo(ARoomTile* MoveToTile);
+	UFUNCTION(Server, Reliable)
+		void Server_MoveCharacterTo(ARoomTile* MoveToTile);
 	void MovePlacedTile(FDoorWay DoorWay, ETileDirection MoveToDirection);
+	UFUNCTION(Server, Reliable)
+		void Server_MovePlacedTile(FDoorWay DoorWay, ETileDirection MoveToDirection);
 
 	void ChangeCameraBehaviour();
 
 	void DrawRoomTile();
+	UFUNCTION(Server, Reliable)
+		void Server_DrawRoomTile();
 	void PlaceRoomTile();
+	UFUNCTION(Server, Reliable)
+		void Server_PlaceRoomTile();
 	void RotateRoomTile();
+	UFUNCTION(Server, Reliable)
+		void Server_RotateRoomTile();
+
+	void StartTurn();
 };

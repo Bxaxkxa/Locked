@@ -5,6 +5,7 @@
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 ARoomTile::ARoomTile()
@@ -15,12 +16,24 @@ ARoomTile::ARoomTile()
 	RoomDetectionCollider = CreateDefaultSubobject<UBoxComponent>("RoomDetectionCollider");
 	RoomDetectionCollider->SetCollisionProfileName("OverlapOnlyPawn");
 	SetRootComponent(RoomDetectionCollider);
+
+	SetReplicates(true);
+	SetReplicateMovement(true);
 }
 
 // Called when the game starts or when spawned
 void ARoomTile::BeginPlay()
 {
 	Super::BeginPlay();
+
+	//Top Right
+	PlayerIdlePositions[0] = FVector(PlayerIdleDistance, PlayerIdleDistance,0);
+	//Top Left
+	PlayerIdlePositions[1] = FVector(-PlayerIdleDistance, PlayerIdleDistance, 0);
+	//Bottom Left
+	PlayerIdlePositions[2] = FVector(-PlayerIdleDistance,-PlayerIdleDistance, 0);
+	//Bottom Right
+	PlayerIdlePositions[3] = FVector(PlayerIdleDistance, -PlayerIdleDistance, 0);
 }
 
 // Called every frame
@@ -61,6 +74,22 @@ void ARoomTile::CheckNeightbourRooms()
 			continue;
 		}
 		ARoomTile* HitRoom = Cast<ARoomTile>(OutHit.GetActor());
+
+		ETileDirection OppositeDirection;
+		int DirectionEnumBit = i;
+		if (DirectionEnumBit >= 2)
+		{
+			OppositeDirection = ETileDirection(DirectionEnumBit - 2);
+		}
+		else
+		{
+			OppositeDirection = ETileDirection(DirectionEnumBit + 2);
+		}
+
+		if (!HitRoom->NeighbourRoom[static_cast<int>(OppositeDirection)].IsThereDoorway())
+		{
+			continue;
+		}
 
 		NeighbourRoom[i].SetNextRoom(HitRoom);
 		HitRoom->SetOppositeRoom(ETileDirection(i), this);
@@ -115,4 +144,17 @@ void ARoomTile::CheckConnectionAvailibility(ETileDirection OriginDirection)
 	{
 		RotateRoomPlacement();
 	}
+}
+
+FVector ARoomTile::GetNextAvailableIdleSpot()
+{
+	FVector PlayerIdlePositionTarget = GetActorLocation() + PlayerIdlePositions[0];
+	return PlayerIdlePositionTarget;
+}
+
+void ARoomTile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ARoomTile, NeighbourRoom);
 }

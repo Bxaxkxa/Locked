@@ -20,8 +20,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		class UBoxComponent* RoomDetectionCollider;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Replicated)
 		FDoorWay NeighbourRoom[ETileDirection::NUM];
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+		float PlayerIdleDistance;
+
+	FVector PlayerIdlePositions[4];
 
 protected:
 	// Called when the game starts or when spawned
@@ -40,4 +45,8 @@ public:
 	void RotateRoomPlacement();
 
 	void CheckConnectionAvailibility(ETileDirection OriginDirection);
+
+	FVector GetNextAvailableIdleSpot();
 };
+
+

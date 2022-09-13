@@ -16,22 +16,23 @@ public:
 	ALockedCharacter();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
-		class ARoomTile *CurrentRoom;
+		class ARoomTile* CurrentRoom;
 
-	class APlayerControlPawn* ControllerPawn;
+	UPROPERTY(Replicated)
+		class APlayerControlPawn* ControllerPawn;
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	void CharacterMoveTo(ARoomTile* Room);
+	virtual void CharacterMoveTo(ARoomTile* Room);
 
 	UFUNCTION(BlueprintCallable)
 		void ActiveInput();
