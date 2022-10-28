@@ -6,8 +6,10 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "BoardController.h"
 #include "MyProject/Room/MainRoomTile.h"
-#include "MyProject/RandomGenRoom.h"
+#include "MyProject/Room/RandomGenRoom.h"
+#include "State/LockedPlayerState.h"
 #include "Net/UnrealNetwork.h"
 
 // Sets default values
@@ -70,6 +72,9 @@ void APlayerControlPawn::BeginPlay()
 
 		SpawnControlledCharacter();
 
+		CurrentRoom->AddIdlePlayer(ControlledCharacter);
+		CurrentRoom->PlaceIdlePlayerAtIdlePosition();
+
 		FollowTarget = ControlledCharacter;
 
 		RandomRoomGenDeck = Cast<ARandomGenRoom>(UGameplayStatics::GetActorOfClass(GetWorld(), ARandomGenRoom::StaticClass()));
@@ -95,18 +100,6 @@ void APlayerControlPawn::Tick(float DeltaTime)
 void APlayerControlPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	/*PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, ETileDirection>("Left", IE_Pressed, this, &APlayerControlPawn::ManageMovement, ETileDirection::NextLeft);
-	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, ETileDirection>("Right", IE_Pressed, this, &APlayerControlPawn::ManageMovement, ETileDirection::NextRight);
-	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, ETileDirection>("Up", IE_Pressed, this, &APlayerControlPawn::ManageMovement, ETileDirection::NextUp);
-	PlayerInputComponent->BindAction<FTestingDelegate, APlayerControlPawn, ETileDirection>("Down", IE_Pressed, this, &APlayerControlPawn::ManageMovement, ETileDirection::NextDown);
-
-	PlayerInputComponent->BindAction("ChangeBehaviour", IE_Pressed, this, &APlayerControlPawn::ChangeCameraBehaviour);
-
-	PlayerInputComponent->BindAction("PlaceTile", IE_Pressed, this, &APlayerControlPawn::Server_PlaceRoomTile);
-
-	PlayerInputComponent->BindAction("DrawTile", IE_Pressed, this, &APlayerControlPawn::Server_DrawRoomTile);
-	PlayerInputComponent->BindAction("RotateTile", IE_Pressed, this, &APlayerControlPawn::Server_RotateRoomTile);*/
 }
 
 void APlayerControlPawn::ManageMovement(ETileDirection MoveToDirection)
@@ -116,15 +109,16 @@ void APlayerControlPawn::ManageMovement(ETileDirection MoveToDirection)
 		return;
 	}*/
 
-	ARoomTile* TargetRoom = CurrentRoom->NeighbourRoom[static_cast<int>(MoveToDirection)].GetNextRoom();
+
+	//ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
 
 	switch (CurrentMovementInputState)
 	{
 	case EMovementInputState::E_CharMovement:
-		Server_MoveCharacterTo(TargetRoom);
+		Server_MoveCharacterTo(CurrentRoom, MoveToDirection);
 		break;
 	case EMovementInputState::E_TileMovement:
-		MoveCameraTo(TargetRoom);
+		MoveCameraTo(CurrentRoom->NeighbourRoom[static_cast<int>(MoveToDirection)].GetNextRoom());
 		break;
 	case EMovementInputState::E_TilePlacement:
 		Server_MovePlacedTile(CurrentRoom->NeighbourRoom[static_cast<int>(MoveToDirection)], MoveToDirection);
@@ -154,14 +148,23 @@ void APlayerControlPawn::MoveCharacterTo(ARoomTile* MoveToTile)
 	}
 }
 
-void APlayerControlPawn::Server_MoveCharacterTo_Implementation(ARoomTile* MoveToTile)
+void APlayerControlPawn::Server_MoveCharacterTo_Implementation(ARoomTile* MoveToTile, ETileDirection MoveToDirection)
 {
-	if (!bStillInMove && MoveToTile)
+	FDoorWay* CurrentRoomDoorWay = &MoveToTile->NeighbourRoom[static_cast<int>(MoveToDirection)];
+	ARoomTile* MoveToRoom = CurrentRoomDoorWay->GetNextRoom();
+	FDoorWay* OppositeRoomDoorWay = MoveToTile->GetOppositeDoorWay(MoveToDirection);
+
+	ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
+	if (!bStillInMove && MoveToRoom &&
+		CurrentRoomDoorWay->IsThereDoorway() && OppositeRoomDoorWay &&
+		OppositeRoomDoorWay->IsThereDoorway() && State->AvailableMove > 0)
 	{
 		bStillInMove = true;
-		ControlledCharacter->CharacterMoveTo(MoveToTile);
+		ControlledCharacter->CharacterMoveTo(MoveToRoom);
 
-		CurrentRoom = MoveToTile;
+		CurrentRoom = MoveToRoom;
+
+		State->UseMovePoint();
 	}
 }
 
@@ -178,20 +181,6 @@ void APlayerControlPawn::MovePlacedTile(FDoorWay DoorWay, ETileDirection MoveToD
 
 		LastPlacedDirection = MoveToDirection;
 		DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
-		/*	switch (MoveToDirection)
-			{
-			case ETileDirection::NextLeft:
-				break;
-			case ETileDirection::NextRight:
-				DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + FVector(0.0f, 400.0f, 0.0f));
-				break;
-			case ETileDirection::NextUp:
-				DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + FVector(400.0f, 0.0f, 0.0f));
-				break;
-			case ETileDirection::NextDown:
-				DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + FVector(-400.0f, 0.0f, 0.0f));
-				break;
-			}*/
 	}
 }
 
@@ -208,49 +197,44 @@ void APlayerControlPawn::Server_MovePlacedTile_Implementation(FDoorWay DoorWay, 
 
 		LastPlacedDirection = MoveToDirection;
 		DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
-		/*	switch (MoveToDirection)
-			{
-			case ETileDirection::NextLeft:
-				break;
-			case ETileDirection::NextRight:
-				DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + FVector(0.0f, 400.0f, 0.0f));
-				break;
-			case ETileDirection::NextUp:
-				DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + FVector(600.0f, 0.0f, 0.0f));
-				break;
-			case ETileDirection::NextDown:
-				DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + FVector(-600.0f, 0.0f, 0.0f));
-				break;
-			}*/
 	}
 }
 
-void APlayerControlPawn::ChangeCameraBehaviour()
+void APlayerControlPawn::ChangeCameraBehaviour(EMovementInputState NewInputState)
 {
-	if (bStillInMove || !bIsPlayerTurn)
-		return;
+	CurrentMovementInputState = NewInputState;
 
-	switch (CurrentMovementInputState)
+	switch (NewInputState)
 	{
 	case EMovementInputState::E_CharMovement:
-		CurrentMovementInputState = EMovementInputState::E_TileMovement;
+		FollowTarget = ControlledCharacter;
+		break;
+	case EMovementInputState::E_TileMovement:
 		CurrentRoom = ControlledCharacter->CurrentRoom;
 		FollowTarget = CurrentRoom;
 		break;
-	case EMovementInputState::E_TileMovement:
-		CurrentMovementInputState = EMovementInputState::E_CharMovement;
-		FollowTarget = ControlledCharacter;
-		break;
 	case EMovementInputState::E_TilePlacement:
+		FollowTarget = DrawedRoomTile = RandomRoomGenDeck->DrawTile();
 		break;
 	default:
 		break;
 	}
 }
 
+void APlayerControlPawn::BackToActionMenu()
+{
+	ABoardController* BoardController = GetController<ABoardController>();
+	if (BoardController && !bStillInMove && CurrentMovementInputState != EMovementInputState::E_TilePlacement)
+	{
+		CurrentMovementInputState = EMovementInputState::E_Idle;
+		FollowTarget = ControlledCharacter;
+		BoardController->ShowActionWidget(true);
+	}
+}
+
 void APlayerControlPawn::DrawRoomTile()
 {
-	if (!(CurrentMovementInputState == EMovementInputState::E_CharMovement))
+	if (!(CurrentMovementInputState == EMovementInputState::E_CharMovement) || bStillInMove)
 	{
 		return;
 	}
@@ -271,6 +255,8 @@ void APlayerControlPawn::DrawRoomTile()
 			DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
 		}
 	}
+
+	//ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
 	CurrentMovementInputState = EMovementInputState::E_TilePlacement;
 }
 
@@ -280,13 +266,14 @@ void APlayerControlPawn::Server_DrawRoomTile_Implementation()
 	{
 		return;
 	}
+	ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
 
 	if (!(CurrentMovementInputState == EMovementInputState::E_CharMovement))
 	{
 		return;
 	}
 
-	FollowTarget = DrawedRoomTile = RandomRoomGenDeck->DrawTile();
+	ChangeCameraBehaviour(EMovementInputState::E_TilePlacement);
 
 	for (int i = 0; i < static_cast<int>(ETileDirection::NUM); i++)
 	{
@@ -302,7 +289,6 @@ void APlayerControlPawn::Server_DrawRoomTile_Implementation()
 			DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
 		}
 	}
-	CurrentMovementInputState = EMovementInputState::E_TilePlacement;
 }
 
 void APlayerControlPawn::PlaceRoomTile()
@@ -316,13 +302,13 @@ void APlayerControlPawn::PlaceRoomTile()
 
 	DrawedRoomTile->CheckNeightbourRooms();
 
-	Server_MoveCharacterTo(DrawedRoomTile);
+	CurrentMovementInputState = EMovementInputState::E_CharMovement;
+
+	Server_MoveCharacterTo(CurrentRoom, LastPlacedDirection);
 
 	DrawedRoomTile = nullptr;
 
 	FollowTarget = ControlledCharacter;
-
-	CurrentMovementInputState = EMovementInputState::E_CharMovement;
 }
 
 void APlayerControlPawn::Server_PlaceRoomTile_Implementation()
@@ -336,13 +322,13 @@ void APlayerControlPawn::Server_PlaceRoomTile_Implementation()
 
 	DrawedRoomTile->CheckNeightbourRooms();
 
-	Server_MoveCharacterTo(DrawedRoomTile);
+	CurrentMovementInputState = EMovementInputState::E_CharMovement;
+
+	Server_MoveCharacterTo(CurrentRoom, LastPlacedDirection);
 
 	DrawedRoomTile = nullptr;
 
 	FollowTarget = ControlledCharacter;
-
-	CurrentMovementInputState = EMovementInputState::E_CharMovement;
 }
 
 void APlayerControlPawn::RotateRoomTile()
@@ -354,9 +340,33 @@ void APlayerControlPawn::RotateRoomTile()
 	}
 }
 
+void APlayerControlPawn::CheckMovePoint()
+{
+	ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
+
+	if (!State->AvailableMove)
+	{
+		BackToActionMenu();
+	}
+}
+
 void APlayerControlPawn::StartTurn()
 {
-	bIsPlayerTurn = true;
+	ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
+	State->Server_RefreshMovePoint();
+
+	CurrentRoom->RemovePlayerFromIdle(ControlledCharacter);
+
+	CurrentRoom->PlaceIdlePlayerAtIdlePosition();
+}
+
+void APlayerControlPawn::EndTurn()
+{
+	ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
+	State->AvailableMove = 0;
+
+	CurrentRoom->AddIdlePlayer(ControlledCharacter);
+	CurrentRoom->PlaceIdlePlayerAtIdlePosition();
 }
 
 void APlayerControlPawn::Server_RotateRoomTile_Implementation()

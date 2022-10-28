@@ -2,6 +2,7 @@
 
 
 #include "LockedCharacter.h"
+#include "Components/CapsuleComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "MyProject/Room/MainRoomTile.h"
 #include "LockedAIController.h"
@@ -24,7 +25,6 @@ void ALockedCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	CurrentRoom = Cast<AMainRoomTile>(UGameplayStatics::GetActorOfClass(GetWorld(), AMainRoomTile::StaticClass()));
-
 }
 
 // Called every frame
@@ -51,10 +51,15 @@ void ALockedCharacter::CharacterMoveTo(ARoomTile* Room)
 void ALockedCharacter::ActiveInput()
 {
 	ControllerPawn->bStillInMove = false;
+	ControllerPawn->CheckMovePoint();
+}
+
+void ALockedCharacter::ChangeToIdleCollision(bool State)
+{
+	State ? GetCapsuleComponent()->SetCollisionProfileName("IgnorePawnOnly") : GetCapsuleComponent()->SetCollisionProfileName("Pawn");
 }
 
 void ALockedCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
 }

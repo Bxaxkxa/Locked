@@ -36,4 +36,6 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 		void ActiveInput();
+
+	void ChangeToIdleCollision(bool State);
 };

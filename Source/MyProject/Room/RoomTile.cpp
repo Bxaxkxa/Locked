@@ -3,8 +3,10 @@
 
 #include "RoomTile.h"
 #include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "MyProject/Character/LockedCharacter.h"
 #include "Net/UnrealNetwork.h"
 
 // Sets default values
@@ -27,13 +29,13 @@ void ARoomTile::BeginPlay()
 	Super::BeginPlay();
 
 	//Top Right
-	PlayerIdlePositions[0] = FVector(PlayerIdleDistance, PlayerIdleDistance,0);
+	PlayerIdlePositions[0] = FVector(PlayerIdleDistance, PlayerIdleDistance, 0);
 	//Top Left
-	PlayerIdlePositions[1] = FVector(-PlayerIdleDistance, PlayerIdleDistance, 0);
+	PlayerIdlePositions[1] = FVector(PlayerIdleDistance, -PlayerIdleDistance, 0);
 	//Bottom Left
-	PlayerIdlePositions[2] = FVector(-PlayerIdleDistance,-PlayerIdleDistance, 0);
+	PlayerIdlePositions[2] = FVector(-PlayerIdleDistance, -PlayerIdleDistance, 0);
 	//Bottom Right
-	PlayerIdlePositions[3] = FVector(PlayerIdleDistance, -PlayerIdleDistance, 0);
+	PlayerIdlePositions[3] = FVector(-PlayerIdleDistance, PlayerIdleDistance, 0);
 }
 
 // Called every frame
@@ -46,7 +48,7 @@ void ARoomTile::CheckNeightbourRooms()
 {
 	for (int i = 0; i < static_cast<int>(ETileDirection::NUM); i++)
 	{
-		if (NeighbourRoom[i].GetNextRoom() || !NeighbourRoom[i].IsThereDoorway())
+		if (NeighbourRoom[i].GetNextRoom())
 		{
 			continue;
 		}
@@ -75,24 +77,8 @@ void ARoomTile::CheckNeightbourRooms()
 		}
 		ARoomTile* HitRoom = Cast<ARoomTile>(OutHit.GetActor());
 
-		ETileDirection OppositeDirection;
-		int DirectionEnumBit = i;
-		if (DirectionEnumBit >= 2)
-		{
-			OppositeDirection = ETileDirection(DirectionEnumBit - 2);
-		}
-		else
-		{
-			OppositeDirection = ETileDirection(DirectionEnumBit + 2);
-		}
-
-		if (!HitRoom->NeighbourRoom[static_cast<int>(OppositeDirection)].IsThereDoorway())
-		{
-			continue;
-		}
-
 		NeighbourRoom[i].SetNextRoom(HitRoom);
-		HitRoom->SetOppositeRoom(ETileDirection(i), this);
+		GetOppositeDoorWay(ETileDirection(i))->SetNextRoom(this);
 	}
 }
 
@@ -115,7 +101,7 @@ void ARoomTile::SetOppositeRoom(ETileDirection OriginDirection, ARoomTile* Origi
 void ARoomTile::RotateRoomPlacement()
 {
 	FDoorWay LastDoorWayReplacement = NeighbourRoom[(int)ETileDirection::NextRight];
-	
+
 	for (int i = 0; i < (int)ETileDirection::NextDown; i++)
 	{
 		NeighbourRoom[i] = NeighbourRoom[i + 1];
@@ -152,9 +138,56 @@ FVector ARoomTile::GetNextAvailableIdleSpot()
 	return PlayerIdlePositionTarget;
 }
 
+void ARoomTile::AddIdlePlayer(ALockedCharacter* Player)
+{
+	IdlePlayers.Add(Player);
+
+	Player->ChangeToIdleCollision(true);
+}
+
+void ARoomTile::RemovePlayerFromIdle(ALockedCharacter* Player)
+{
+	if (Player && IdlePlayers.Contains(Player))
+	{
+		Player->SetActorLocation(GetActorLocation() + FVector(0, 0, Player->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()));
+
+		IdlePlayers.Remove(Player);
+
+		Player->ChangeToIdleCollision(false);
+	}
+}
+
+void ARoomTile::PlaceIdlePlayerAtIdlePosition()
+{
+	for (int i = 0; i < IdlePlayers.Num(); i++)
+	{
+		FVector RoomIdlePosition = GetActorLocation() + PlayerIdlePositions[i] + FVector(0,0,IdlePlayers[i]->GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+
+		IdlePlayers[i]->SetActorLocation(RoomIdlePosition);
+	}
+}
+
+FDoorWay* ARoomTile::GetOppositeDoorWay(ETileDirection OriginDirection)
+{
+	ETileDirection OppositeDirection;
+	int DirectionEnumBit = static_cast<int>(OriginDirection);
+	if (DirectionEnumBit >= 2)
+	{
+		OppositeDirection = ETileDirection(DirectionEnumBit - 2);
+	}
+	else
+	{
+		OppositeDirection = ETileDirection(DirectionEnumBit + 2);
+	}
+	ARoomTile* OppositeRoom = NeighbourRoom[static_cast<int>(OriginDirection)].GetNextRoom();
+	return &OppositeRoom->NeighbourRoom[static_cast<int>(OppositeDirection)];
+}
+
 void ARoomTile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ARoomTile, NeighbourRoom);
+	DOREPLIFETIME(ARoomTile, IdlePlayers);
+	DOREPLIFETIME(ARoomTile, PlayerIdlePositions);
 }

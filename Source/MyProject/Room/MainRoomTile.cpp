@@ -9,6 +9,8 @@ AMainRoomTile::AMainRoomTile()
 
 void AMainRoomTile::BeginPlay()
 {
+	Super::BeginPlay();
+
 	SpawnDoor();
 }
 

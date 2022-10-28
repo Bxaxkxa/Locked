@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "MyProject/Private/Struct/DoorWayStruct.h"
+#include "MyProject/Struct/DoorWayStruct.h"
 #include "MyProject/Enum/DirectionEnum.h"
 #include "RoomTile.generated.h"
 
@@ -26,7 +26,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		float PlayerIdleDistance;
 
+	UPROPERTY(Replicated)
 	FVector PlayerIdlePositions[4];
+
+	UPROPERTY(Replicated)
+		TArray<class ALockedCharacter*> IdlePlayers;
 
 protected:
 	// Called when the game starts or when spawned
@@ -47,6 +51,14 @@ public:
 	void CheckConnectionAvailibility(ETileDirection OriginDirection);
 
 	FVector GetNextAvailableIdleSpot();
+
+	void AddIdlePlayer(ALockedCharacter* Player);
+
+	void RemovePlayerFromIdle(ALockedCharacter* Player);
+
+	void PlaceIdlePlayerAtIdlePosition();
+
+	FDoorWay* GetOppositeDoorWay(ETileDirection OriginDirection);
 };
 
 

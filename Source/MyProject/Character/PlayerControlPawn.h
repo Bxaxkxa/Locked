@@ -4,18 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
-#include "MyProject/Private/Struct/DoorWayStruct.h"
+#include "MyProject/Struct/DoorWayStruct.h"
 #include "MyProject/Enum/DirectionEnum.h"
+#include "MyProject/Enum/PlayerMovementState.h"
 #include "PlayerControlPawn.generated.h"
-
-UENUM()
-enum class EMovementInputState
-{
-	E_CharMovement,
-	E_TileMovement,
-	E_TilePlacement
-};
-
 
 UCLASS()
 class MYPROJECT_API APlayerControlPawn : public APawn
@@ -81,12 +73,14 @@ public:
 	void MoveCameraTo(ARoomTile* MoveToTile);
 	void MoveCharacterTo(ARoomTile* MoveToTile);
 	UFUNCTION(Server, Reliable)
-		void Server_MoveCharacterTo(ARoomTile* MoveToTile);
+		void Server_MoveCharacterTo(ARoomTile* MoveToTile, ETileDirection MoveToDirection);
 	void MovePlacedTile(FDoorWay DoorWay, ETileDirection MoveToDirection);
 	UFUNCTION(Server, Reliable)
 		void Server_MovePlacedTile(FDoorWay DoorWay, ETileDirection MoveToDirection);
 
-	void ChangeCameraBehaviour();
+	void ChangeCameraBehaviour(EMovementInputState NewInputState);
+
+	void BackToActionMenu();
 
 	void DrawRoomTile();
 	UFUNCTION(Server, Reliable)
@@ -98,5 +92,8 @@ public:
 	UFUNCTION(Server, Reliable)
 		void Server_RotateRoomTile();
 
+	void CheckMovePoint();
+
 	void StartTurn();
+	void EndTurn();
 };
