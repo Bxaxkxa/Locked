@@ -7,6 +7,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "MyProject/Struct/GameSettings.h"
+#include "Framework/Application/NavigationConfig.h"
 #include "MyProjectGameMode.generated.h"
 
 UCLASS(minimalapi)

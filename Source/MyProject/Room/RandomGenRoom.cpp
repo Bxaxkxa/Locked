@@ -3,6 +3,7 @@
 
 #include "RandomGenRoom.h"
 #include "MyProject/Room/RoomTile.h"
+#include "Kismet/GameplayStatics.h"
 
 // Sets default values
 ARandomGenRoom::ARandomGenRoom()
@@ -28,15 +29,62 @@ void ARandomGenRoom::Tick(float DeltaTime)
 
 ARoomTile* ARandomGenRoom::DrawTile()
 {
-	uint8 RandNumber = rand() % 4;
+	int32 RandNumber;
 
 	UWorld* World = GetWorld();
 	if (World == nullptr)
 	{
 		return nullptr;
 	}
+	TArray<AActor*> OutResult;
+	UGameplayStatics::GetAllActorsOfClass(World, ARoomTile::StaticClass(), OutResult);
+	bool NotValidRoom = true;
+	//Do loop 
+	do
+	{
+		RandNumber = FMath::RandRange(0, E_Num - 1);
 
-	if (RoomTemplates[RandNumber])
+		if (!TileCards[RandNumber].GetRemainingTileAmounts())
+		{
+			continue;
+		}
+
+		if (!TileCards[E_QuadDoorTile].GetRemainingTileAmounts() &&
+			!TileCards[E_TripleDoorTile].GetRemainingTileAmounts() &&
+			!TileCards[E_DoubleStraightDoorTile].GetRemainingTileAmounts() &&
+			!TileCards[E_DoubleCurveDoorTile].GetRemainingTileAmounts())
+		{
+			break;
+		}
+
+		//If going to generate single door room
+		if (RandNumber == E_SingleDoorTile)
+		{
+			uint8 NotFullyConnectedRoom = 0;
+			//Loop every generated room
+			for (AActor* it : OutResult)
+			{
+				//If there is not fully connected room
+				if (!Cast<ARoomTile>(it)->FullyConnected)
+				{
+					NotFullyConnectedRoom++;
+					//If there is more than 2 not fully connected room
+					if (NotFullyConnectedRoom >= 2)
+					{
+						//Set state to stop loop
+						NotValidRoom = false;
+						break;
+					}
+				}
+			}
+			continue;
+		}
+		//If it is not single door tile stop loop
+		NotValidRoom = false;
+
+	} while (NotValidRoom);
+
+	if (TileCards[RandNumber].GetRoomTemplate())
 	{
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.Owner = GetOwner();
@@ -44,26 +92,12 @@ ARoomTile* ARandomGenRoom::DrawTile()
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 		FTransform spawnlocation = GetActorTransform();
-		return World->SpawnActor<ARoomTile>(RoomTemplates[RandNumber], spawnlocation, SpawnParams);
-	}
+		ARoomTile* SpawnTile = World->SpawnActor<ARoomTile>(TileCards[RandNumber].GetRoomTemplate(), spawnlocation, SpawnParams);
 
-	//switch (RandNumber)
-	//{
-	//case 0:
-	//	GEngine->AddOnScreenDebugMessage(1, 5.0f, FColor::Green, "Draw A Tile");
-	//	break;
-	//case 1:
-	//	GEngine->AddOnScreenDebugMessage(1, 5.0f, FColor::Green, "Draw B Tile");
-	//	break;
-	//case 2:
-	//	GEngine->AddOnScreenDebugMessage(1, 5.0f, FColor::Green, "Draw C Tile");
-	//	break;
-	//case 3:
-	//	GEngine->AddOnScreenDebugMessage(1, 5.0f, FColor::Green, "Draw D Tile");
-	//	break;
-	//default:
-	//	break;
-	//}
+		TileCards[RandNumber].ReduceTilesAmount();
+
+		return SpawnTile;
+	}
 
 	return nullptr;
 }

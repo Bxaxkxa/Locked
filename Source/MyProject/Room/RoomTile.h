@@ -32,6 +32,8 @@ public:
 	UPROPERTY(Replicated)
 		TArray<class ALockedCharacter*> IdlePlayers;
 
+	bool FullyConnected = false;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -48,7 +50,9 @@ public:
 
 	void RotateRoomPlacement();
 
-	void CheckConnectionAvailibility(ETileDirection OriginDirection);
+	void CheckOtherRoomConnectionAvailibility(ETileDirection OriginDirection);
+
+	bool IsDoorWaysFullyFilled();
 
 	FVector GetNextAvailableIdleSpot();
 

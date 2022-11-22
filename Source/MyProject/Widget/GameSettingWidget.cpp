@@ -14,10 +14,10 @@ void UGameSettingWidget::NativeConstruct()
 	ALobbyGameMode* GameMode = Cast<ALobbyGameMode>(GetWorld()->GetAuthGameMode());
 	BoardGameSettings = &GameMode->BoardGameSettings;
 
-	if (ReadyButton->OnClicked.IsBound())
+	if (ReadyButton->OnButtonClick.IsBound())
 		return;
 
-	ReadyButton->OnClicked.AddDynamic(this, &UGameSettingWidget::ReadyUp);
+	ReadyButton->OnButtonClick.AddDynamic(this, &UGameSettingWidget::ReadyUp);
 }
 
 void UGameSettingWidget::ReadyUp()

@@ -7,6 +7,7 @@
 #include "MyProject/GameMode/MyProjectGameMode.h"
 #include "MyProject/Widget/PlayerActionWidget.h"
 #include "MyProject/Widget/PlayerTurnDisplay.h"
+#include "MyProject/Widget/ActionIndicatorLayout.h"
 #include "State/LockedPlayerState.h"
 #include "Net/UnrealNetwork.h"
 
@@ -14,10 +15,11 @@ void ABoardController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	//SetInputMode(FInputModeUIOnly());
+	SetInputMode(FInputModeGameAndUI());
 
 	ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
-	if (State) {
+	if (State) 
+	{
 		State->OnMovementBehaviourChangeDelegate.BindUFunction(this, FName("ChangeCameraBehaviour"));
 	}
 
@@ -61,6 +63,7 @@ void ABoardController::OnPossess(APawn* aPawn)
 	Super::OnPossess(aPawn);
 
 	BoardPlayer = Cast<APlayerControlPawn>(aPawn);
+
 }
 
 void ABoardController::OnUnPossess()
@@ -96,6 +99,26 @@ void ABoardController::ShowActionWidget(bool On)
 	//{
 	//	On ? ActionUIWidget->AddToViewport() : ActionUIWidget->RemoveFromParent();
 	//}
+}
+
+void ABoardController::Client_ShowIndicatorLayout_Implementation(bool On)
+{
+	if (ActionIndicatorWidget)
+	{
+		On ? ActionIndicatorWidget->SetVisibility(ESlateVisibility::SelfHitTestInvisible) : ActionIndicatorWidget->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
+
+void ABoardController::Client_ChangeIndicatorLayout_Implementation(EActionLayout LayoutStyle)
+{
+	if (ActionIndicatorWidget)
+	{
+		if (!ActionIndicatorWidget->IsVisible())
+		{
+			ActionIndicatorWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
+		}
+	ActionIndicatorWidget->ChangeIndicatorLayout(LayoutStyle);
+	}
 }
 
 void ABoardController::Back()
@@ -142,6 +165,14 @@ void ABoardController::Multicast_StartPlayerTurn_Implementation()
 	}*/
 }
 
+void ABoardController::Server_ChangeCameraPerspective_Implementation(ALockedCharacter* CurrentTurnPlayerCharacter)
+{
+	if (BoardPlayer)
+	{
+		BoardPlayer->ChangeCameraPerspective(CurrentTurnPlayerCharacter);
+	}
+}
+
 void ABoardController::Multicast_EndTurn_Implementation()
 {
 	Server_ChangeTurn();
@@ -171,6 +202,7 @@ void ABoardController::Server_DrawRoomTile_Implementation()
 	if (BoardPlayer && bIsInTurn)
 	{
 		BoardPlayer->DrawRoomTile();
+		Client_ChangeIndicatorLayout(EActionLayout::PlaceTileAction);
 	}
 }
 
@@ -179,6 +211,7 @@ void ABoardController::Server_PlaceRoomTile_Implementation()
 	if (BoardPlayer && bIsInTurn)
 	{
 		BoardPlayer->PlaceRoomTile();
+		Client_ChangeIndicatorLayout(EActionLayout::MoveAction);
 	}
 }
 
@@ -190,6 +223,11 @@ void ABoardController::Server_RotateRoomTile_Implementation()
 	}
 }
 
+ALockedCharacter* ABoardController::GetPlayerCharacter()
+{
+	return BoardPlayer->GetPlayerCharacter();
+}
+
 void ABoardController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -197,6 +235,7 @@ void ABoardController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(ABoardController, BoardPlayer);
 	DOREPLIFETIME(ABoardController, bIsInTurn);
 	DOREPLIFETIME(ABoardController, ActionUIWidget);
+	DOREPLIFETIME(ABoardController, ActionIndicatorWidget);
 	DOREPLIFETIME(ABoardController, TurnDisplayWidgetClass);
 	DOREPLIFETIME(ABoardController, bIsReadyToStart);
 }

@@ -8,6 +8,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/GameSession.h"
 #include "Net/UnrealNetwork.h"
+#include "UObject/ConstructorHelpers.h"
+#include "LockedNavigationInputConfig.h"
 
 AMyProjectGameMode::AMyProjectGameMode()
 {
@@ -24,6 +26,9 @@ AMyProjectGameMode::AMyProjectGameMode()
 void AMyProjectGameMode::StartPlay()
 {
 	Super::StartPlay();
+
+	//FNavigationConfig NavConfig = FSlateApplication::Get().GetNavigationConfig().Get();
+	FSlateApplication::Get().SetNavigationConfig(MakeShared<FGameNavigationConfig>());
 }
 
 void AMyProjectGameMode::ShowNextTurnDisplay()
@@ -37,7 +42,17 @@ void AMyProjectGameMode::AddTurnDisplay(int PlayerTurnIndex)
 	{
 		APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), i);
 
-		Cast<ABoardController>(PlayerController)->Client_DisplayPlayerTurn(PlayerTurnIndex);
+		ABoardController* BoardController = Cast<ABoardController>(PlayerController);
+		if (BoardController)
+		{
+			BoardController->Client_DisplayPlayerTurn(PlayerTurnIndex);
+
+			APlayerController* CurrentTurnPlayerController = UGameplayStatics::GetPlayerController(GetWorld(), PlayerTurnIndex);
+
+			ABoardController* CurrentTurnBoardController = Cast<ABoardController>(CurrentTurnPlayerController);
+
+			BoardController->Server_ChangeCameraPerspective(CurrentTurnBoardController->GetPlayerCharacter());
+		}
 	}
 }
 

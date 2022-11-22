@@ -79,6 +79,8 @@ void ARoomTile::CheckNeightbourRooms()
 
 		NeighbourRoom[i].SetNextRoom(HitRoom);
 		GetOppositeDoorWay(ETileDirection(i))->SetNextRoom(this);
+		FullyConnected = IsDoorWaysFullyFilled();
+		HitRoom->FullyConnected = HitRoom->IsDoorWaysFullyFilled();
 	}
 }
 
@@ -113,7 +115,7 @@ void ARoomTile::RotateRoomPlacement()
 	SetActorRotation(NewRotation);
 }
 
-void ARoomTile::CheckConnectionAvailibility(ETileDirection OriginDirection)
+void ARoomTile::CheckOtherRoomConnectionAvailibility(ETileDirection OriginDirection)
 {
 	ETileDirection OppositeDirection;
 	int DirectionEnumBit = (int)OriginDirection;
@@ -130,6 +132,18 @@ void ARoomTile::CheckConnectionAvailibility(ETileDirection OriginDirection)
 	{
 		RotateRoomPlacement();
 	}
+}
+
+bool ARoomTile::IsDoorWaysFullyFilled()
+{
+	for (FDoorWay it : NeighbourRoom)
+	{
+		if (!it.IsThereDoorway())
+			continue;
+		if (!it.GetNextRoom())
+			return false;
+	}
+	return true;
 }
 
 FVector ARoomTile::GetNextAvailableIdleSpot()

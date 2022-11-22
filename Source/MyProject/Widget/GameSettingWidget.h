@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/Button.h"
+#include "SelectedButton.h"
 #include "MyProject/Struct/GameSettings.h"
 #include "GameSettingWidget.generated.h"
 
@@ -17,8 +18,8 @@ class MYPROJECT_API UGameSettingWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(meta = (BindWidget))
-		UButton* ReadyButton;
+	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
+		USelectedButton* ReadyButton;
 
 	FGameSettings* BoardGameSettings = nullptr;
 

@@ -18,6 +18,15 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsAdmin = false;
 
+	UPROPERTY(BlueprintReadWrite)
+		class UActionIndicatorLayout* ActionIndicatorWidget;
+
+	ALobbyPlayerController();
+
+	virtual void OnPossess(APawn* aPawn) override;
+
+	virtual void AcknowledgePossession(APawn* PossesedPawn) override;
+
 protected:
 	virtual void BeginPlay() override;
 };

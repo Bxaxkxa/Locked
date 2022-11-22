@@ -7,6 +7,7 @@
 #include "MyProject/Struct/DoorWayStruct.h"
 #include "MyProject/Enum/DirectionEnum.h"
 #include "MyProject/Enum/PlayerMovementState.h"
+#include "MyProject/Enum/ActionIndicatorEnum.h"
 #include "BoardController.generated.h"
 
 /**
@@ -43,6 +44,9 @@ protected:
 	UPROPERTY(BlueprintReadWrite, Replicated)
 		class UPlayerActionWidget* ActionUIWidget;
 
+	UPROPERTY(BlueprintReadWrite, Replicated)
+		class UActionIndicatorLayout* ActionIndicatorWidget;
+
 	FTimerHandle UIDelayTimerHandle;
 	float UIDelayTime = 0.2f;
 
@@ -59,6 +63,8 @@ public:
 
 	UFUNCTION(Client, Reliable)
 		void Client_ShowActionWidget(bool On);
+	UFUNCTION(Client, Reliable)
+		void Client_ShowIndicatorLayout(bool bShowWidget);
 
 	void ShowActionWidget(bool On);
 
@@ -66,10 +72,6 @@ public:
 
 	UFUNCTION(Server, Reliable)
 		void Server_ChangeCameraBehaviour(EMovementInputState NewInputState);
-
-	//UFUNCTION()
-		//virtual void ChangeCameraBehaviour(EMovementInputState NewInputState);
-		//virtual void ChangeCameraBehaviour(EMovementInputState& NewInputState);
 
 	UFUNCTION(Server, Reliable)
 		void Server_DrawRoomTile();
@@ -81,8 +83,14 @@ public:
 	UFUNCTION(Client, Reliable)
 		void Client_DisplayPlayerTurn(int Turn);
 
+	UFUNCTION(Client, Reliable)
+		void Client_ChangeIndicatorLayout(EActionLayout LayoutStyle);
+
 	UFUNCTION(NetMulticast, Reliable)
 		void Multicast_StartPlayerTurn();
+
+	UFUNCTION(Server, Reliable)
+		void Server_ChangeCameraPerspective(class ALockedCharacter* CurrentTurnPlayerCharacter);
 
 	UFUNCTION(NetMulticast, Reliable)
 		void Multicast_EndTurn();
@@ -91,6 +99,7 @@ public:
 
 	FORCEINLINE bool IsPlayerReady() { return bIsReadyToStart; }
 	FORCEINLINE bool IsItPlayersTurn() { return bIsInTurn; }
+	ALockedCharacter* GetPlayerCharacter();
 
 	//int GetAvailableMove();
 };

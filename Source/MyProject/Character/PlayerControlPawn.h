@@ -79,6 +79,7 @@ public:
 		void Server_MovePlacedTile(FDoorWay DoorWay, ETileDirection MoveToDirection);
 
 	void ChangeCameraBehaviour(EMovementInputState NewInputState);
+	void ChangeCameraPerspective(ALockedCharacter* CurrentTurnPlayerCharacter);
 
 	void BackToActionMenu();
 
@@ -92,8 +93,11 @@ public:
 	UFUNCTION(Server, Reliable)
 		void Server_RotateRoomTile();
 
+
 	void CheckMovePoint();
 
 	void StartTurn();
 	void EndTurn();
+
+	FORCEINLINE ALockedCharacter* GetPlayerCharacter() { return ControlledCharacter; }
 };

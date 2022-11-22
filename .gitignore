@@ -72,3 +72,13 @@ Plugins/*/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+.hg/
+binaries/
+deriveddatacache/
+.vs/
+build/
+intermediate/
+PACKPLUGIN/
+saved/
+*.orig

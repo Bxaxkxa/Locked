@@ -6,6 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/Button.h"
 #include "MyProject/Enum/PlayerMovementState.h"
+#include "SelectedButton.h"
 #include "PlayerActionWidget.generated.h"
 
 /**
@@ -18,13 +19,13 @@ class MYPROJECT_API UPlayerActionWidget : public UUserWidget
 
 public:
 	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
-		UButton* MoveActionButton;
+		USelectedButton* MoveActionButton;
 
 	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
-		UButton* ViewMapButton;
+		USelectedButton* ViewMapButton;
 
 	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
-		UButton* EndTurnButton;
+		USelectedButton* EndTurnButton;
 
 	UPROPERTY(Replicated)
 		class ABoardController* PlayerOwner;
@@ -52,4 +53,7 @@ public:
 
 	UFUNCTION()
 		virtual void SwitchToTileMoveState();
+
+	UFUNCTION()
+		virtual void VisibilityChange(ESlateVisibility InVisibility);
 };

@@ -75,7 +75,7 @@ void APlayerControlPawn::BeginPlay()
 		CurrentRoom->AddIdlePlayer(ControlledCharacter);
 		CurrentRoom->PlaceIdlePlayerAtIdlePosition();
 
-		FollowTarget = ControlledCharacter;
+		//FollowTarget = ControlledCharacter;
 
 		RandomRoomGenDeck = Cast<ARandomGenRoom>(UGameplayStatics::GetActorOfClass(GetWorld(), ARandomGenRoom::StaticClass()));
 	}
@@ -180,7 +180,7 @@ void APlayerControlPawn::MovePlacedTile(FDoorWay DoorWay, ETileDirection MoveToD
 		DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + AddPosition);
 
 		LastPlacedDirection = MoveToDirection;
-		DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
+		DrawedRoomTile->CheckOtherRoomConnectionAvailibility(LastPlacedDirection);
 	}
 }
 
@@ -196,7 +196,7 @@ void APlayerControlPawn::Server_MovePlacedTile_Implementation(FDoorWay DoorWay, 
 		DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + AddPosition);
 
 		LastPlacedDirection = MoveToDirection;
-		DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
+		DrawedRoomTile->CheckOtherRoomConnectionAvailibility(LastPlacedDirection);
 	}
 }
 
@@ -221,6 +221,11 @@ void APlayerControlPawn::ChangeCameraBehaviour(EMovementInputState NewInputState
 	}
 }
 
+void APlayerControlPawn::ChangeCameraPerspective(ALockedCharacter* CurrentTurnPlayerCharacter)
+{
+	FollowTarget = CurrentTurnPlayerCharacter;
+}
+
 void APlayerControlPawn::BackToActionMenu()
 {
 	ABoardController* BoardController = GetController<ABoardController>();
@@ -234,7 +239,7 @@ void APlayerControlPawn::BackToActionMenu()
 
 void APlayerControlPawn::DrawRoomTile()
 {
-	if (!(CurrentMovementInputState == EMovementInputState::E_CharMovement) || bStillInMove)
+	if (!(CurrentMovementInputState == EMovementInputState::E_CharMovement) || bStillInMove || CurrentRoom->FullyConnected)
 	{
 		return;
 	}
@@ -252,7 +257,7 @@ void APlayerControlPawn::DrawRoomTile()
 			FVector AddPosition = FVector((IsGoingUp * 600.0f) + (IsGoingDown * -600.0f), (IsGoingRight * 600.0f) + (IsGoingLeft * -600.0f), 0.0f);
 			DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + AddPosition);
 			LastPlacedDirection = ETileDirection(i);
-			DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
+			DrawedRoomTile->CheckOtherRoomConnectionAvailibility(LastPlacedDirection);
 		}
 	}
 
@@ -262,7 +267,7 @@ void APlayerControlPawn::DrawRoomTile()
 
 void APlayerControlPawn::Server_DrawRoomTile_Implementation()
 {
-	if (!bIsPlayerTurn)
+	if (!bIsPlayerTurn || CurrentRoom->FullyConnected)
 	{
 		return;
 	}
@@ -286,7 +291,7 @@ void APlayerControlPawn::Server_DrawRoomTile_Implementation()
 			FVector AddPosition = FVector((IsGoingUp * 600.0f) + (IsGoingDown * -600.0f), (IsGoingRight * 600.0f) + (IsGoingLeft * -600.0f), 0.0f);
 			DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + AddPosition);
 			LastPlacedDirection = ETileDirection(i);
-			DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
+			DrawedRoomTile->CheckOtherRoomConnectionAvailibility(LastPlacedDirection);
 		}
 	}
 }
@@ -336,7 +341,7 @@ void APlayerControlPawn::RotateRoomTile()
 	if (DrawedRoomTile)
 	{
 		DrawedRoomTile->RotateRoomPlacement();
-		DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
+		DrawedRoomTile->CheckOtherRoomConnectionAvailibility(LastPlacedDirection);
 	}
 }
 
@@ -374,7 +379,7 @@ void APlayerControlPawn::Server_RotateRoomTile_Implementation()
 	if (DrawedRoomTile)
 	{
 		DrawedRoomTile->RotateRoomPlacement();
-		DrawedRoomTile->CheckConnectionAvailibility(LastPlacedDirection);
+		DrawedRoomTile->CheckOtherRoomConnectionAvailibility(LastPlacedDirection);
 	}
 }
 
