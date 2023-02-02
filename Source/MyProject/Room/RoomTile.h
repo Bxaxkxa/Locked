@@ -29,6 +29,9 @@ public:
 	UPROPERTY(Replicated)
 	FVector PlayerIdlePositions[4];
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+		float DuelDistance;
+
 	UPROPERTY(Replicated)
 		TArray<class ALockedCharacter*> IdlePlayers;
 
@@ -61,6 +64,8 @@ public:
 	void RemovePlayerFromIdle(ALockedCharacter* Player);
 
 	void PlaceIdlePlayerAtIdlePosition();
+
+	void SetPlayerToDuelPosition(ALockedCharacter* Player, bool IsAttacker);
 
 	FDoorWay* GetOppositeDoorWay(ETileDirection OriginDirection);
 };

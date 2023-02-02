@@ -181,6 +181,13 @@ void ARoomTile::PlaceIdlePlayerAtIdlePosition()
 	}
 }
 
+void ARoomTile::SetPlayerToDuelPosition(ALockedCharacter* Player, bool IsAttacker)
+{
+	float AddYPosition = DuelDistance * !IsAttacker + (IsAttacker * -1) * DuelDistance;
+	FVector DuelPosition = GetActorLocation() + FVector(0, AddYPosition, 0);
+	Player->SetActorLocation(DuelPosition);
+}
+
 FDoorWay* ARoomTile::GetOppositeDoorWay(ETileDirection OriginDirection)
 {
 	ETileDirection OppositeDirection;

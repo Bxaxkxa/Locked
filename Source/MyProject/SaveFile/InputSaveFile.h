@@ -20,4 +20,10 @@ public:
 
 	UPROPERTY(BlueprintReadWrite)
 		FKey GamepadConfirmKey = EKeys::Virtual_Accept;
+
+	UPROPERTY(BlueprintReadWrite)
+		FKey KeyboardBackKey = EKeys::X;
+
+	UPROPERTY(BlueprintReadWrite)
+		FKey GamepadBackKey = EKeys::Virtual_Back;
 };

@@ -51,6 +51,10 @@ void ALockedCharacter::CharacterMoveTo(ARoomTile* Room)
 void ALockedCharacter::ActiveInput()
 {
 	ControllerPawn->bStillInMove = false;
+
+	if (ControllerPawn->CheckRoomForDualTarget())
+		return;
+
 	ControllerPawn->CheckMovePoint();
 }
 

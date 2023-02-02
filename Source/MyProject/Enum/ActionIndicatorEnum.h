@@ -16,5 +16,6 @@ enum class EActionLayout : uint8
 	ItemAction = 3,
 	ViewMapAction = 4,
 	PlaceTileAction = 5,
-	NUM = 5,
+	DiceRoll = 6,
+	NUM = 7,
 };

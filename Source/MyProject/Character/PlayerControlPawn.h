@@ -15,7 +15,6 @@ class MYPROJECT_API APlayerControlPawn : public APawn
 	GENERATED_BODY()
 
 public:
-	DECLARE_DELEGATE_OneParam(FTestingDelegate, ETileDirection);
 	// Sets default values for this pawn's properties
 	APlayerControlPawn();
 
@@ -55,6 +54,8 @@ public:
 
 	ETileDirection LastPlacedDirection;
 
+	int NextDuelTarget = 0;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -84,15 +85,15 @@ public:
 	void BackToActionMenu();
 
 	void DrawRoomTile();
-	UFUNCTION(Server, Reliable)
-		void Server_DrawRoomTile();
 	void PlaceRoomTile();
-	UFUNCTION(Server, Reliable)
-		void Server_PlaceRoomTile();
+
 	void RotateRoomTile();
 	UFUNCTION(Server, Reliable)
 		void Server_RotateRoomTile();
 
+	void DuelCheck(ALockedCharacter* DuelTarget);
+	UFUNCTION(BlueprintCallable)
+		bool CheckRoomForDualTarget();
 
 	void CheckMovePoint();
 

@@ -20,18 +20,32 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated)
 		int AvailableMove = 0;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
+		int MaxAvailableMove = 3;
+
 	UPROPERTY(Replicated, ReplicatedUsing = Server_ChangePlayerCameraBehaviour)
 		EMovementInputState CurrentMovementInputState;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated)
+		int Health = 2;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
+		int MaxHealth = 2;
+
+	UPROPERTY(Replicated)
+		FOnBehaviourChange OnMovementBehaviourChangeDelegate;
 
 	ALockedPlayerState();
 
 	UFUNCTION(Server, Reliable)
 		virtual void Server_ChangePlayerCameraBehaviour();
 
-	UPROPERTY(Replicated)
-		FOnBehaviourChange OnMovementBehaviourChangeDelegate;
+	UFUNCTION(Server, Reliable)
+	void TakeDamage();
 
 	void UseMovePoint() { AvailableMove--; }
+	void DoubleMovePoint() { AvailableMove *= 2; }
+	int GetHealthPoint() { return Health; }
 
 	UFUNCTION(Server, Reliable)
 		void Server_RefreshMovePoint();

@@ -7,6 +7,7 @@ AFourDoorRoom::AFourDoorRoom()
 {
 	SetReplicates(true);
 	SetReplicateMovement(true);
+	
 }
 
 void AFourDoorRoom::SpawnDoor()

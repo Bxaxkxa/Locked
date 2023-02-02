@@ -13,11 +13,12 @@ void UPlayerActionWidget::NativeConstruct()
 	Super::NativeConstruct();
 
 	GetWorld()->GetTimerManager().SetTimer(UIDelayTimerHandle, this, &UPlayerActionWidget::SetupPlayerVariable, UIDelayTime, false);
-
+	
 	if (MoveActionButton->OnButtonClick.IsBound())
 		return;
 
 	MoveActionButton->OnButtonClick.AddDynamic(this, &UPlayerActionWidget::DelayToSwitchToCharacterMoveState);
+	ItemButton->OnButtonClick.AddDynamic(this, &UPlayerActionWidget::SetItemAsLastFocusedButton);
 	ViewMapButton->OnButtonClick.AddDynamic(this, &UPlayerActionWidget::SwitchToTileMoveState);
 	EndTurnButton->OnButtonClick.AddDynamic(this, &UPlayerActionWidget::DelayToEndTurn);
 
@@ -28,14 +29,16 @@ void UPlayerActionWidget::SwitchToCharacterMoveState()
 {
 	ABoardController* BoardController = GetOwningPlayer<ABoardController>();
 
-	if (PlayerOwner)
+	if (PlayerOwner && BoardController)
 	{
 		PlayerOwner->Server_ChangeCameraBehaviour(EMovementInputState::E_CharMovement);
 		PlayerOwner->Client_ChangeIndicatorLayout(EActionLayout::MoveAction);
+
+		BoardController->SetInputMode(FInputModeGameOnly());
 	}
 
 	SetVisibility(ESlateVisibility::Hidden);
-	//RemoveFromParent();
+	LastFocusedButton = MoveActionButton;
 }
 
 void UPlayerActionWidget::DelayToSwitchToCharacterMoveState()
@@ -53,9 +56,11 @@ void UPlayerActionWidget::EndTurn()
 {
 	ABoardController* BoardController = GetOwningPlayer<ABoardController>();
 
+	LastFocusedButton = nullptr;
+
 	if (PlayerOwner)
 	{
-		PlayerOwner->Multicast_EndTurn();
+		PlayerOwner->Server_EndTurn();
 		PlayerOwner->Client_ShowIndicatorLayout(false);
 	}
 }
@@ -69,23 +74,32 @@ void UPlayerActionWidget::SwitchToTileMoveState()
 {
 	ABoardController* BoardController = GetOwningPlayer<ABoardController>();
 
-	if (PlayerOwner)
+	if (PlayerOwner && BoardController)
 	{
 		PlayerOwner->Server_ChangeCameraBehaviour(EMovementInputState::E_TileMovement);
 		PlayerOwner->Client_ChangeIndicatorLayout(EActionLayout::ViewMapAction);
+
+		BoardController->SetInputMode(FInputModeGameOnly());
 	}
 
 	SetVisibility(ESlateVisibility::Hidden);
+	LastFocusedButton = ViewMapButton;
+}
+
+void UPlayerActionWidget::SetItemAsLastFocusedButton()
+{
+	//The other response implementation is in blueprint
+	LastFocusedButton = ItemButton;
 }
 
 void UPlayerActionWidget::VisibilityChange(ESlateVisibility InVisibility)
 {
 	if (InVisibility == ESlateVisibility::SelfHitTestInvisible)
 	{
-		MoveActionButton->SetFocus();
-
 		PlayerOwner->Client_ChangeIndicatorLayout(EActionLayout::MenuAction);
 		PlayerOwner->Client_ShowIndicatorLayout(true);
+
+		SetFocus();
 	}
 }
 

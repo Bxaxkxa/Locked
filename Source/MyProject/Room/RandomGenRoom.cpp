@@ -17,7 +17,7 @@ ARandomGenRoom::ARandomGenRoom()
 void ARandomGenRoom::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 }
 
 // Called every frame
@@ -44,11 +44,13 @@ ARoomTile* ARandomGenRoom::DrawTile()
 	{
 		RandNumber = FMath::RandRange(0, E_Num - 1);
 
+		//If there is no more tile in the deck with the tile type that is going to be drawn
 		if (!TileCards[RandNumber].GetRemainingTileAmounts())
 		{
 			continue;
 		}
 
+		//If every tile type except for the single room tile type is empty
 		if (!TileCards[E_QuadDoorTile].GetRemainingTileAmounts() &&
 			!TileCards[E_TripleDoorTile].GetRemainingTileAmounts() &&
 			!TileCards[E_DoubleStraightDoorTile].GetRemainingTileAmounts() &&

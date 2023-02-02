@@ -22,10 +22,16 @@ public:
 		USelectedButton* MoveActionButton;
 
 	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
+		USelectedButton* ItemButton;
+
+	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
 		USelectedButton* ViewMapButton;
 
 	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
 		USelectedButton* EndTurnButton;
+
+	UPROPERTY(BlueprintReadOnly)
+		USelectedButton* LastFocusedButton;
 
 	UPROPERTY(Replicated)
 		class ABoardController* PlayerOwner;
@@ -53,6 +59,9 @@ public:
 
 	UFUNCTION()
 		virtual void SwitchToTileMoveState();
+
+	UFUNCTION()
+		virtual void SetItemAsLastFocusedButton();
 
 	UFUNCTION()
 		virtual void VisibilityChange(ESlateVisibility InVisibility);

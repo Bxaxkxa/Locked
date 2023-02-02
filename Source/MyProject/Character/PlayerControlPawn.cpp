@@ -9,6 +9,9 @@
 #include "BoardController.h"
 #include "MyProject/Room/MainRoomTile.h"
 #include "MyProject/Room/RandomGenRoom.h"
+#include "MyProject/GameState/LockedGameState.h"
+#include "MyProject/GameMode/MyProjectGameMode.h"
+
 #include "State/LockedPlayerState.h"
 #include "Net/UnrealNetwork.h"
 
@@ -104,13 +107,6 @@ void APlayerControlPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 void APlayerControlPawn::ManageMovement(ETileDirection MoveToDirection)
 {
-	/*if (!bIsPlayerTurn)
-	{
-		return;
-	}*/
-
-
-	//ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
 
 	switch (CurrentMovementInputState)
 	{
@@ -231,6 +227,8 @@ void APlayerControlPawn::BackToActionMenu()
 	ABoardController* BoardController = GetController<ABoardController>();
 	if (BoardController && !bStillInMove && CurrentMovementInputState != EMovementInputState::E_TilePlacement)
 	{
+		BoardController->SetInputMode(FInputModeUIOnly());
+
 		CurrentMovementInputState = EMovementInputState::E_Idle;
 		FollowTarget = ControlledCharacter;
 		BoardController->ShowActionWidget(true);
@@ -261,39 +259,11 @@ void APlayerControlPawn::DrawRoomTile()
 		}
 	}
 
-	//ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
 	CurrentMovementInputState = EMovementInputState::E_TilePlacement;
-}
 
-void APlayerControlPawn::Server_DrawRoomTile_Implementation()
-{
-	if (!bIsPlayerTurn || CurrentRoom->FullyConnected)
-	{
-		return;
-	}
-	ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
-
-	if (!(CurrentMovementInputState == EMovementInputState::E_CharMovement))
-	{
-		return;
-	}
-
-	ChangeCameraBehaviour(EMovementInputState::E_TilePlacement);
-
-	for (int i = 0; i < static_cast<int>(ETileDirection::NUM); i++)
-	{
-		if (CurrentRoom->NeighbourRoom[i].IsThereDoorway() && !CurrentRoom->NeighbourRoom[i].GetNextRoom())
-		{
-			bool IsGoingLeft = ETileDirection(i) == ETileDirection::NextLeft;
-			bool IsGoingRight = ETileDirection(i) == ETileDirection::NextRight;
-			bool IsGoingUp = ETileDirection(i) == ETileDirection::NextUp;
-			bool IsGoingDown = ETileDirection(i) == ETileDirection::NextDown;
-			FVector AddPosition = FVector((IsGoingUp * 600.0f) + (IsGoingDown * -600.0f), (IsGoingRight * 600.0f) + (IsGoingLeft * -600.0f), 0.0f);
-			DrawedRoomTile->SetActorLocation(CurrentRoom->GetActorLocation() + AddPosition);
-			LastPlacedDirection = ETileDirection(i);
-			DrawedRoomTile->CheckOtherRoomConnectionAvailibility(LastPlacedDirection);
-		}
-	}
+	ABoardController* BoardController = GetController<ABoardController>();
+	if (BoardController)
+		BoardController->Client_ChangeIndicatorLayout(EActionLayout::PlaceTileAction);
 }
 
 void APlayerControlPawn::PlaceRoomTile()
@@ -304,7 +274,6 @@ void APlayerControlPawn::PlaceRoomTile()
 	}
 
 	CurrentRoom->NeighbourRoom[static_cast<int>(LastPlacedDirection)].SetNextRoom(DrawedRoomTile);
-
 	DrawedRoomTile->CheckNeightbourRooms();
 
 	CurrentMovementInputState = EMovementInputState::E_CharMovement;
@@ -314,26 +283,10 @@ void APlayerControlPawn::PlaceRoomTile()
 	DrawedRoomTile = nullptr;
 
 	FollowTarget = ControlledCharacter;
-}
 
-void APlayerControlPawn::Server_PlaceRoomTile_Implementation()
-{
-	if (!DrawedRoomTile)
-	{
-		return;
-	}
-
-	CurrentRoom->NeighbourRoom[static_cast<int>(LastPlacedDirection)].SetNextRoom(DrawedRoomTile);
-
-	DrawedRoomTile->CheckNeightbourRooms();
-
-	CurrentMovementInputState = EMovementInputState::E_CharMovement;
-
-	Server_MoveCharacterTo(CurrentRoom, LastPlacedDirection);
-
-	DrawedRoomTile = nullptr;
-
-	FollowTarget = ControlledCharacter;
+	ABoardController* BoardController = GetController<ABoardController>();
+	if (BoardController)
+		BoardController->Client_ChangeIndicatorLayout(EActionLayout::MoveAction);
 }
 
 void APlayerControlPawn::RotateRoomTile()
@@ -343,6 +296,42 @@ void APlayerControlPawn::RotateRoomTile()
 		DrawedRoomTile->RotateRoomPlacement();
 		DrawedRoomTile->CheckOtherRoomConnectionAvailibility(LastPlacedDirection);
 	}
+}
+
+void APlayerControlPawn::DuelCheck(ALockedCharacter* DuelTarget)
+{
+	CurrentRoom->SetPlayerToDuelPosition(ControlledCharacter, true);
+	CurrentRoom->SetPlayerToDuelPosition(DuelTarget, false);
+
+	ABoardController* CurrentPlayerController = GetController<ABoardController>();
+	ABoardController* DuelTargetController = DuelTarget->ControllerPawn->GetController<ABoardController>();
+
+	CurrentPlayerController->Multicast_DisplayDuelOption(DuelTarget->ControllerPawn, true);
+	DuelTargetController->Multicast_DisplayDuelOption(DuelTarget->ControllerPawn, false);
+
+	AMyProjectGameMode* GameMode = (AMyProjectGameMode*)GetWorld()->GetAuthGameMode();
+	GameMode->DuelSetup(CurrentPlayerController, DuelTargetController);
+}
+
+bool APlayerControlPawn::CheckRoomForDualTarget()
+{
+	if (!CurrentRoom->IdlePlayers.Num())
+		return false;
+
+	//Reset Idle Player Position
+	CurrentRoom->PlaceIdlePlayerAtIdlePosition();
+
+	if (NextDuelTarget >= CurrentRoom->IdlePlayers.Num())
+	{
+		NextDuelTarget = 0;
+		ControlledCharacter->SetActorLocation(CurrentRoom->GetActorLocation());
+		BackToActionMenu();
+		return false;
+	}
+
+	DuelCheck(CurrentRoom->IdlePlayers[NextDuelTarget]);
+	NextDuelTarget++;
+	return true;
 }
 
 void APlayerControlPawn::CheckMovePoint()
@@ -369,6 +358,8 @@ void APlayerControlPawn::EndTurn()
 {
 	ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
 	State->AvailableMove = 0;
+
+	NextDuelTarget = 0;
 
 	CurrentRoom->AddIdlePlayer(ControlledCharacter);
 	CurrentRoom->PlaceIdlePlayerAtIdlePosition();

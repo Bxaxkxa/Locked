@@ -15,11 +15,11 @@ EUINavigationAction FGameNavigationConfig::GetNavigationActionFromKey(const FKey
 		// By default, enter, space, and gamepad accept are all counted as accept
 		return EUINavigationAction::Accept;
 	}
-	//else if (InKey == EKeys::Escape || InKey == EKeys::Virtual_Back)
-	//{
-	//	// By default, escape and gamepad back count as leaving current scope
-	//	return EUINavigationAction::Back;
-	//}
+	else if (InKey == InputSettingSaveFile->KeyboardBackKey || InKey == InputSettingSaveFile->GamepadBackKey)
+	{
+		// By default, escape and gamepad back count as leaving current scope
+		return EUINavigationAction::Back;
+	}
 
 	return EUINavigationAction::Invalid;
 }
