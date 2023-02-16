@@ -52,6 +52,9 @@ void ALockedCharacter::ActiveInput()
 {
 	ControllerPawn->bStillInMove = false;
 
+	if (ControllerPawn->PickupItemOnCurrentRoom())
+		return;
+
 	if (ControllerPawn->CheckRoomForDualTarget())
 		return;
 

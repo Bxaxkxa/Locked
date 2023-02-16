@@ -188,6 +188,24 @@ void ARoomTile::SetPlayerToDuelPosition(ALockedCharacter* Player, bool IsAttacke
 	Player->SetActorLocation(DuelPosition);
 }
 
+void ARoomTile::AddPendingDroppedItem(FItemData NewDroppedItem)
+{
+	PendingDroppedItem.Add(NewDroppedItem);
+}
+
+void ARoomTile::FillDroppedItemWithPendingDrop()
+{
+	for (FItemData it : PendingDroppedItem)
+	{
+		DroppedItem.Add(it);
+	}
+}
+
+void ARoomTile::Server_PickedItemOnFloor_Implementation(FItemData PickedItem)
+{
+	DroppedItem.Remove(PickedItem);
+}
+
 FDoorWay* ARoomTile::GetOppositeDoorWay(ETileDirection OriginDirection)
 {
 	ETileDirection OppositeDirection;
@@ -211,4 +229,6 @@ void ARoomTile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 	DOREPLIFETIME(ARoomTile, NeighbourRoom);
 	DOREPLIFETIME(ARoomTile, IdlePlayers);
 	DOREPLIFETIME(ARoomTile, PlayerIdlePositions);
+	DOREPLIFETIME(ARoomTile, DroppedItem);
+	DOREPLIFETIME(ARoomTile, PendingDroppedItem);
 }

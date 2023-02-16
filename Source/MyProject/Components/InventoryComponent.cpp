@@ -5,6 +5,7 @@
 #include "MyProject/Character/PlayerControlPawn.h"
 #include "MyProject/Character/BoardController.h"
 #include "MyProject/Character/State/LockedPlayerState.h"
+#include "Myproject/LockedBFL.h"
 #include "Net/UnrealNetwork.h"
 
 // Sets default values for this component's properties
@@ -22,7 +23,7 @@ UInventoryComponent::UInventoryComponent()
 void UInventoryComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 }
 
 
@@ -30,15 +31,22 @@ void UInventoryComponent::BeginPlay()
 void UInventoryComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Green, "Inventory Count: " + FString::FromInt(ItemInventory.Num()));
+	for (FItemData it : ItemInventory)
+	{
+		FString EnumString = UEnum::GetValueAsString(it.ItemName);
 
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Green, "Item Name: " + ULockedBFL::GetEnumName(EnumString));
+	}
 }
 
 void UInventoryComponent::AddItemToInventory(FItemData NewItem)
 {
 	ItemInventory.Add(NewItem);
+
+	bInventoryIsFull = ItemInventory.Num() > MaxInventory;
 }
 
-//void UInventoryComponent::RemoveItemFromInventory_Implementation(FItemData RemovedItem)
 void UInventoryComponent::RemoveItemFromInventory(FItemData RemovedItem)
 {
 	ItemInventory.Remove(RemovedItem);
@@ -46,14 +54,14 @@ void UInventoryComponent::RemoveItemFromInventory(FItemData RemovedItem)
 
 void UInventoryComponent::UseConsumable(FItemData ConsumableData)
 {
-	switch (ConsumableData.ItemName){
+	switch (ConsumableData.ItemName) {
 	case EItemList::EnergyDrink:
 		GetOwner<ABoardController>()->GetPlayerState<ALockedPlayerState>()->DoubleMovePoint();
 		break;
 	default:
 		break;
 	}
-	
+
 	ItemInventory.Remove(ConsumableData);
 }
 
@@ -66,8 +74,24 @@ void UInventoryComponent::UseWeapon(FItemData WeaponData)
 	default:
 		break;
 	}
+}
 
-	////ItemInventory.Remove(WeaponData);
+void UInventoryComponent::Server_DropItem_Implementation(FItemData ItemData)
+{
+	ItemInventory.Remove(ItemData);
+
+	GetOwner<ABoardController>()->DropItemOnRoom(ItemData);
+}
+
+void UInventoryComponent::DropAllItem()
+{
+	if (ItemInventory.IsEmpty())
+		return;
+
+	for (FItemData it : ItemInventory)
+	{
+		Server_DropItem(it);
+	}
 }
 
 void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const
@@ -75,4 +99,5 @@ void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(UInventoryComponent, ItemInventory);
+	DOREPLIFETIME(UInventoryComponent, bInventoryIsFull);
 }

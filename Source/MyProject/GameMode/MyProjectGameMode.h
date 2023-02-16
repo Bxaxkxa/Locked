@@ -36,6 +36,8 @@ public:
 
 	TArray<APlayerController*> PlayersController;
 
+	EDuelResult PendingDuelResult;
+
 	UPROPERTY(BlueprintReadWrite, Replicated)
 		TArray<FDuelData> DuelData;
 
@@ -66,6 +68,8 @@ public:
 	void QueuUpWeapon(FDuelData QueuDuelData);
 	void UnQueuUpWeapon(bool IsPlayerAttacker);
 
+	void RefreshDuelData();
+
 	void CheckDuelCondition();
 
 	void StopDuel(bool RecheckDuelTarget);
@@ -78,6 +82,11 @@ public:
 	void UpdateDuelDiceUI();
 
 	void CheckDuelDiceResult();
+
+	void StartPlayerStealCard(EDuelResult DuelResult);
+	void StealOpponentCard(FItemData StolenItem);
+
+	void RunPendingDuelResult();
 
 	void UpdatePlayerHealthInfo();
 

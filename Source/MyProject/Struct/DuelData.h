@@ -37,6 +37,8 @@ public:
 	FDuelData(FItemData NewItemData, bool IsDataForAttacker, int NewWeaponValue) : ItemData(NewItemData), IsReady(true), 
 		IsAttacker(IsDataForAttacker), WeaponValue(NewWeaponValue) {}
 
+	void Refresh() { IsReady = false; WeaponValue = 0; }
+
 	//FORCEINLINE void SetItemName(EItemList Name) { ItemName = Name; }
 
 	bool operator==(const FDuelData& other) const

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "MyProject/Struct/DoorWayStruct.h"
+#include "MyProject/Struct/CardStruct.h"
 #include "MyProject/Enum/DirectionEnum.h"
 #include "RoomTile.generated.h"
 
@@ -27,13 +28,19 @@ public:
 		float PlayerIdleDistance;
 
 	UPROPERTY(Replicated)
-	FVector PlayerIdlePositions[4];
+		FVector PlayerIdlePositions[4];
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		float DuelDistance;
 
 	UPROPERTY(Replicated)
 		TArray<class ALockedCharacter*> IdlePlayers;
+
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "Debug")
+		TArray<FItemData> DroppedItem;
+
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "Debug")
+		TArray<FItemData> PendingDroppedItem;
 
 	bool FullyConnected = false;
 
@@ -66,6 +73,12 @@ public:
 	void PlaceIdlePlayerAtIdlePosition();
 
 	void SetPlayerToDuelPosition(ALockedCharacter* Player, bool IsAttacker);
+
+	void AddPendingDroppedItem(FItemData NewDroppedItem);
+	void FillDroppedItemWithPendingDrop();
+
+	UFUNCTION(Server, Reliable)
+		void Server_PickedItemOnFloor(FItemData PickedItem);
 
 	FDoorWay* GetOppositeDoorWay(ETileDirection OriginDirection);
 };

@@ -12,7 +12,10 @@
 #include "MyProject/Widget/DuelOption.h"
 #include "MyProject/Widget/DuelWidget.h"
 #include "MyProject/Widget/ActionIndicatorLayout.h"
+#include "MyProject/Widget/OverCapacityWidget.h"
 #include "MyProject/Widget/PlayersHealthWidget.h"
+#include "MyProject/Widget/ObtainedItemUI.h"
+#include "MyProject/Widget/StealCardWidget.h"
 #include "State/LockedPlayerState.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
@@ -36,7 +39,6 @@ void ABoardController::BeginPlay()
 	{
 		State->OnMovementBehaviourChangeDelegate.BindUFunction(this, FName("ChangeCameraBehaviour"));
 	}
-
 }
 
 void ABoardController::SetupInputComponent()
@@ -133,6 +135,14 @@ void ABoardController::Back()
 	}
 }
 
+void ABoardController::SetPlayerMovementStateToMoveState()
+{
+	Server_ChangeCameraBehaviour(EMovementInputState::E_CharMovement);
+	Client_ChangeIndicatorLayout(EActionLayout::MoveAction);
+
+	SetInputMode(FInputModeGameOnly());
+}
+
 void ABoardController::Server_ChangeCameraBehaviour_Implementation(EMovementInputState NewInputState)
 {
 	if (BoardPlayer && bIsInTurn)
@@ -148,7 +158,7 @@ void ABoardController::Client_DisplayPlayerTurn_Implementation(int Turn)
 		UPlayerTurnDisplay* TurnDisplay = Cast<UPlayerTurnDisplay>(CreateWidget(this, TurnDisplayWidgetClass));
 		if (TurnDisplay)
 		{
-			TurnDisplay->AddToViewport();
+			TurnDisplay->AddToViewport(2);
 			TurnDisplay->PlayShowTurnAnimation(Turn);
 		}
 	}
@@ -190,19 +200,19 @@ void ABoardController::Server_StopDuel_Implementation()
 	GameMode->StopDuel(true);
 }
 
-void ABoardController::Server_TakeDamage_Implementation()
+float ABoardController::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();
 	if (State)
 	{
-		State->TakeDamage();
-
-		if (!State->Health)
+		if (!State->TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser))
 		{
-			GEngine->AddOnScreenDebugMessage(1, 0.0f, FColor::Red, "Player Died");
-			//TODO: Death
+			InventoryComp->DropAllItem();
+			Server_EndTurn();
 		}
 	}
+
+	return State->Health;
 }
 
 void ABoardController::Client_UpdatePlayerHealthInfo_Implementation(const TArray<int>& UpdatedHealth)
@@ -213,12 +223,79 @@ void ABoardController::Client_UpdatePlayerHealthInfo_Implementation(const TArray
 void ABoardController::Server_UsedUpWeapon_Implementation(FItemData WeaponData)
 {
 	InventoryComp->RemoveItemFromInventory(WeaponData);
-	InventoryComp->RemoveItemFromInventory(WeaponData);
+}
+
+void ABoardController::Server_TriggerTrapCard_Implementation(FItemData TrapCard)
+{
+	ALockedGameState* GameState = GetWorld()->GetGameState<ALockedGameState>();
+	GameState->Server_PutItemToPile(TrapCard);
+
+	switch (TrapCard.ItemName)
+	{
+	case EItemList::SpikeTraps:
+		TakeDamage(2.0f, FDamageEvent(), nullptr, nullptr);
+		break;
+	default:
+		break;
+	}
 }
 
 void ABoardController::CheckRoomForDualTarget()
 {
 	BoardPlayer->CheckRoomForDualTarget();
+}
+
+void ABoardController::DrawCardFromDeck()
+{
+	ALockedGameState* GameState = GetWorld()->GetGameState<ALockedGameState>();
+
+	FItemData DrawedItem = GameState->DrawItem();
+
+	Server_ObtainItem(DrawedItem, EObtainItemMethod::EndTurn);
+}
+
+void ABoardController::Server_ObtainItem_Implementation(FItemData ObtainedItem, EObtainItemMethod ObtainMethod)
+{
+	Client_DisplayObtainItem(ObtainedItem, ObtainMethod);
+
+	switch (ObtainMethod)
+	{
+	case EObtainItemMethod::EndTurn:
+		ContinuePlayerAction.BindUFunction(this, "Server_EndTurn");
+		break;
+	case EObtainItemMethod::PickUp:
+		if (ObtainedItem.ItemType == EItemType::Trap)
+		{
+			ContinuePlayerAction.BindUFunction(this, "Server_TriggerTrapCard", ObtainedItem);
+			return;
+		}
+	case EObtainItemMethod::Steal:
+		ContinuePlayerAction.BindUFunction(BoardPlayer, "CheckRoomForDualTarget");
+		break;
+	}
+
+	InventoryComp->AddItemToInventory(ObtainedItem);
+}
+
+void ABoardController::Client_DisplayObtainItem_Implementation(FItemData ObtainedItem, EObtainItemMethod ObtainMethod)
+{
+	ObtainItemWidget->ObtainItem(ObtainedItem, ObtainMethod);
+	ObtainItemWidget->SetFocus();
+}
+
+void ABoardController::Server_ContinueActionAfterObtainingItem_Implementation()
+{
+	ContinuePlayerAction.ExecuteIfBound();
+
+	ContinuePlayerAction.Unbind();
+
+	BoardPlayer->UpdateCurrentRoomDropItemData();
+
+}
+
+void ABoardController::DropItemOnRoom(FItemData WeaponData)
+{
+	BoardPlayer->DropItemOnCurrentRoom(WeaponData);
 }
 
 void ABoardController::Server_StartDuel_Implementation()
@@ -290,31 +367,49 @@ void ABoardController::DisplayDuelOption(APlayerControlPawn* DuelTarget, ABoardC
 	//GetWorld()->GetTimerManager().SetTimer(UIDelayTimerHandle, TimerDel, UIDelayTime, false);
 }
 
-void ABoardController::Server_DuelDiceOutcome_Implementation(EDuelResult DuelResult)
+void ABoardController::Client_DisplayOverCapacityUI_Implementation(EObtainItemMethod ObtainMethod)
+{
+	OverCapacityWidget->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+	OverCapacityWidget->PendingObtainMethod = ObtainMethod;
+}
+
+void ABoardController::Client_StealOpponentInventory_Implementation(const TArray<FItemData>& OpponentInventory)
+{
+	UStealCardWidget* TurnDisplay = Cast<UStealCardWidget>(CreateWidget(this, StealCardWidgetClass));
+	if (TurnDisplay)
+	{
+		TurnDisplay->AddToViewport(3);
+		TurnDisplay->ShuffleItemCardPosition(OpponentInventory);
+	}
+}
+
+void ABoardController::Server_StealOpponentItem_Implementation(FItemData OpponentInventory)
+{
+	Server_ObtainItem(OpponentInventory, EObtainItemMethod::Steal);
+
+	AMyProjectGameMode* GameMode = Cast<AMyProjectGameMode>(GetWorld()->GetAuthGameMode());
+	if (GameMode)
+	{
+		GameMode->StealOpponentCard(OpponentInventory);
+		ContinuePlayerAction.BindUFunction(this, "Server_RunPendingDuelOutcome");
+	}
+}
+
+void ABoardController::Server_RunDuelOutcome_Implementation(EDuelResult DuelResult)
 {
 	AMyProjectGameMode* GameMode = Cast<AMyProjectGameMode>(GetWorld()->GetAuthGameMode());
-
-	switch (DuelResult)
+	if (GameMode)
 	{
-	case EDuelResult::AttackerWin:
-		if (!bIsTheAttacker)
-		{
-			Server_TakeDamage();
-			GameMode->StopDuel(true);
-		}
-		break;
-	case EDuelResult::DefenderWin:
-		if (bIsTheAttacker)
-		{
-			Server_TakeDamage();
-			GameMode->StopDuel(false);
-		}
-		break;
-	case EDuelResult::Draw:
-		GameMode->StopDuel(true);
-		break;
-	default:
-		break;
+		GameMode->StartPlayerStealCard(DuelResult);
+	}
+}
+
+void ABoardController::Server_RunPendingDuelOutcome_Implementation()
+{
+	AMyProjectGameMode* GameMode = Cast<AMyProjectGameMode>(GetWorld()->GetAuthGameMode());
+	if (GameMode)
+	{
+		GameMode->RunPendingDuelResult();
 	}
 }
 
@@ -337,8 +432,11 @@ void ABoardController::Server_ChangeCameraPerspective_Implementation(ALockedChar
 
 void ABoardController::Server_EndTurn_Implementation()
 {
-	ALockedGameState* GameState = GetWorld()->GetGameState<ALockedGameState>();
-	InventoryComp->AddItemToInventory(GameState->DrawItem());
+	//Server_ObtainItem();
+	if (ContinuePlayerAction.IsBound())
+	{
+		ContinuePlayerAction.Unbind();
+	}
 
 	Server_ChangeTurn();
 
@@ -397,6 +495,8 @@ void ABoardController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(ABoardController, ActionUIWidget);
 	DOREPLIFETIME(ABoardController, DuelOptionWidget);
 	DOREPLIFETIME(ABoardController, DuelWidget);
+	DOREPLIFETIME(ABoardController, ObtainItemWidget);
+	DOREPLIFETIME(ABoardController, OverCapacityWidget);
 	DOREPLIFETIME(ABoardController, PlayerHealthInfo);
 	DOREPLIFETIME(ABoardController, ActionIndicatorWidget);
 	DOREPLIFETIME(ABoardController, TurnDisplayWidgetClass);

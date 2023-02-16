@@ -28,9 +28,14 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Deck", Replicated)
 		TArray<FItemData> ItemInventory;
 
+	UPROPERTY(EditAnywhere)
+		int MaxInventory = 3;
+
+	UPROPERTY(BlueprintReadWrite, Replicated)
+		bool bInventoryIsFull = false;
+
 	void AddItemToInventory(FItemData NewItem);
-	//UFUNCTION(Server, Reliable)
-		void RemoveItemFromInventory(FItemData RemovedItem);
+	void RemoveItemFromInventory(FItemData RemovedItem);
 
 	UFUNCTION(BlueprintCallable)
 		void UseConsumable(FItemData ConsumableData);
@@ -38,5 +43,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 		void UseWeapon(FItemData WeaponData);
 
-	//void DropItem();
+	UFUNCTION(BlueprintCallable, Server,Reliable)
+		void Server_DropItem(FItemData ItemData);
+
+	UFUNCTION(BlueprintCallable)
+		void DropAllItem();
 };

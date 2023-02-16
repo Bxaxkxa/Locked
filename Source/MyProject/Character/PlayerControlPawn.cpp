@@ -334,6 +334,29 @@ bool APlayerControlPawn::CheckRoomForDualTarget()
 	return true;
 }
 
+void APlayerControlPawn::DropItemOnCurrentRoom(FItemData ItemData)
+{
+	CurrentRoom->AddPendingDroppedItem(ItemData);
+}
+
+void APlayerControlPawn::UpdateCurrentRoomDropItemData()
+{
+	CurrentRoom->FillDroppedItemWithPendingDrop();
+}
+
+bool APlayerControlPawn::PickupItemOnCurrentRoom()
+{
+	if (!CurrentRoom->DroppedItem.Num())
+		return false;
+
+	FItemData PickedupItem = CurrentRoom->DroppedItem.Last();
+
+	CurrentRoom->Server_PickedItemOnFloor(PickedupItem);
+	GetController<ABoardController>()->Server_ObtainItem(PickedupItem, EObtainItemMethod::PickUp);
+	return true;
+
+}
+
 void APlayerControlPawn::CheckMovePoint()
 {
 	ALockedPlayerState* State = GetPlayerState<ALockedPlayerState>();

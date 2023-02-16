@@ -4,6 +4,7 @@
 #include "LockedGameState.h"
 #include "Engine/DataTable.h"
 #include "Kismet/KismetArrayLibrary.h"
+#include "MyProject/LockedBFL.h"
 #include "Net/UnrealNetwork.h"
 
 ALockedGameState::ALockedGameState()
@@ -28,7 +29,7 @@ void ALockedGameState::Server_GenerateItemDeckCard_Implementation()
 		}
 	}
 
-	ShuffleItemDeck();
+	ItemDeck = ULockedBFL::ShuffleArray(ItemDeck);
 }
 
 FItemData ALockedGameState::DrawItem()
@@ -56,6 +57,11 @@ FItemData ALockedGameState::DrawItem()
 	return DrawedItem;
 }
 
+void ALockedGameState::Server_PutItemToPile_Implementation(FItemData ItemCard)
+{
+	ItemPile.Add(ItemCard);
+}
+
 void ALockedGameState::ShuffleItemDeck()
 {
 	const int32 ShufflesNum = ItemDeck.Num() - 1;
@@ -65,6 +71,8 @@ void ALockedGameState::ShuffleItemDeck()
 		ItemDeck.Swap(i, SwapIndex);
 	}
 }
+
+
 
 void ALockedGameState::BeginPlay()
 {
@@ -78,4 +86,5 @@ void ALockedGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ALockedGameState, ItemDeck);
+	DOREPLIFETIME(ALockedGameState, ItemPile);
 }

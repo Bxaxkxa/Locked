@@ -27,14 +27,9 @@ void UPlayerActionWidget::NativeConstruct()
 
 void UPlayerActionWidget::SwitchToCharacterMoveState()
 {
-	ABoardController* BoardController = GetOwningPlayer<ABoardController>();
-
-	if (PlayerOwner && BoardController)
+	if (PlayerOwner)
 	{
-		PlayerOwner->Server_ChangeCameraBehaviour(EMovementInputState::E_CharMovement);
-		PlayerOwner->Client_ChangeIndicatorLayout(EActionLayout::MoveAction);
-
-		BoardController->SetInputMode(FInputModeGameOnly());
+		PlayerOwner->SetPlayerMovementStateToMoveState();
 	}
 
 	SetVisibility(ESlateVisibility::Hidden);
@@ -60,8 +55,8 @@ void UPlayerActionWidget::EndTurn()
 
 	if (PlayerOwner)
 	{
-		PlayerOwner->Server_EndTurn();
-		PlayerOwner->Client_ShowIndicatorLayout(false);
+		PlayerOwner->DrawCardFromDeck();
+		//PlayerOwner->Client_ShowIndicatorLayout(false);
 	}
 }
 

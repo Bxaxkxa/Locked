@@ -40,8 +40,7 @@ public:
 	UFUNCTION(Server, Reliable)
 		virtual void Server_ChangePlayerCameraBehaviour();
 
-	UFUNCTION(Server, Reliable)
-	void TakeDamage();
+	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 	void UseMovePoint() { AvailableMove--; }
 	void DoubleMovePoint() { AvailableMove *= 2; }

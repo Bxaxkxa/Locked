@@ -4,6 +4,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "MyProject/Character/BoardController.h"
 #include "MyProject/Character/State/LockedPlayerState.h"
+#include "MyProject/Components/InventoryComponent.h"
 #include "MyProject/SaveFile/BoardSettingsSave.h"
 #include "MyProject/Widget/PlayerTurnDisplay.h"
 #include "Kismet/GameplayStatics.h"
@@ -97,6 +98,12 @@ void AMyProjectGameMode::UnQueuUpWeapon(bool IsPlayerAttacker)
 	DuelData[DataIndex].IsReady = false;
 }
 
+void AMyProjectGameMode::RefreshDuelData()
+{
+	DuelData.FindByKey(true)->Refresh();
+	DuelData.FindByKey(false)->Refresh();
+}
+
 void AMyProjectGameMode::CheckDuelCondition()
 {
 	FDuelData* AttackerDuelData = DuelData.FindByKey(true);
@@ -104,14 +111,14 @@ void AMyProjectGameMode::CheckDuelCondition()
 
 	if (AttackerDuelData->IsReady && DefenderDuelData->IsReady)
 	{
-		EDuelResult CalculatedDuelResult = EDuelResult::AttackerWin;
+		PendingDuelResult = EDuelResult::AttackerWin;
 		if (AttackerDuelData->WeaponValue == DefenderDuelData->WeaponValue)
 		{
-			CalculatedDuelResult = EDuelResult::Draw;
+			PendingDuelResult = EDuelResult::Draw;
 		}
 		else if (AttackerDuelData->WeaponValue < DefenderDuelData->WeaponValue)
 		{
-			CalculatedDuelResult = EDuelResult::DefenderWin;
+			PendingDuelResult = EDuelResult::DefenderWin;
 		}
 
 		//Remove item from inventory if it is not Fist
@@ -120,8 +127,8 @@ void AMyProjectGameMode::CheckDuelCondition()
 		if (DefenderDuelData->WeaponValue)
 			DuelDefender->Server_UsedUpWeapon(DefenderDuelData->ItemData);
 
-		DuelAttacker->Client_PlayDuelAnimation(CalculatedDuelResult);
-		DuelDefender->Client_PlayDuelAnimation(CalculatedDuelResult);
+		DuelAttacker->Client_PlayDuelAnimation(PendingDuelResult);
+		DuelDefender->Client_PlayDuelAnimation(PendingDuelResult);
 	}
 }
 
@@ -179,20 +186,77 @@ void AMyProjectGameMode::UpdateDuelDiceUI()
 
 void AMyProjectGameMode::CheckDuelDiceResult()
 {
-	EDuelResult CalculatedDuelResult = EDuelResult::AttackerWin;
+	PendingDuelResult = EDuelResult::AttackerWin;
 	if (DuelDiceData.AttackerDiceNumber == DuelDiceData.DefenderDiceNumber)
 	{
-		CalculatedDuelResult = EDuelResult::Draw;
+		PendingDuelResult = EDuelResult::Draw;
 	}
 	else if (DuelDiceData.AttackerDiceNumber < DuelDiceData.DefenderDiceNumber)
 	{
-		CalculatedDuelResult = EDuelResult::DefenderWin;
+		PendingDuelResult = EDuelResult::DefenderWin;
 	}
 
-	DuelAttacker->Server_DuelDiceOutcome(CalculatedDuelResult);
-	DuelDefender->Server_DuelDiceOutcome(CalculatedDuelResult);
+	DuelAttacker->Client_HideDuelUI();
+	DuelDefender->Client_HideDuelUI();
+
+	StartPlayerStealCard(PendingDuelResult);
+}
+
+void AMyProjectGameMode::StartPlayerStealCard(EDuelResult DuelResult)
+{
+	TArray<FItemData> StealedInventory;
+	switch (DuelResult)
+	{
+	case EDuelResult::AttackerWin:
+		StealedInventory = DuelDefender->GetInventory()->ItemInventory;
+		DuelAttacker->Client_StealOpponentInventory(StealedInventory);
+		break;
+	case EDuelResult::DefenderWin:
+		StealedInventory = DuelAttacker->GetInventory()->ItemInventory;
+		DuelDefender->Client_StealOpponentInventory(StealedInventory);
+		break;
+	case EDuelResult::Draw:
+		RunPendingDuelResult();
+		break;
+	}
+}
+
+void AMyProjectGameMode::StealOpponentCard(FItemData StolenItem)
+{
+	switch (PendingDuelResult)
+	{
+	case EDuelResult::AttackerWin:
+		DuelDefender->GetInventory()->RemoveItemFromInventory(StolenItem);
+		break;
+	case EDuelResult::DefenderWin:
+		DuelAttacker->GetInventory()->RemoveItemFromInventory(StolenItem);
+		break;
+	}
+}
+
+void AMyProjectGameMode::RunPendingDuelResult()
+{
+	RefreshDuelData();
+
+	switch (PendingDuelResult)
+	{
+	case EDuelResult::AttackerWin:
+		DuelDefender->TakeDamage(1.0f, FDamageEvent(), nullptr, DuelAttacker);
+		StopDuel(true);
+		break;
+	case EDuelResult::DefenderWin:
+		DuelAttacker->TakeDamage(1.0f, FDamageEvent(), nullptr, DuelDefender);
+		StopDuel(false);
+		break;
+	case EDuelResult::Draw:
+		StopDuel(true);
+		break;
+	default:
+		break;
+	}
 
 }
+
 void AMyProjectGameMode::UpdatePlayerHealthInfo()
 {
 	UWorld* World = GetWorld();

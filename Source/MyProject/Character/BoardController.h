@@ -8,21 +8,24 @@
 #include "MyProject/Struct/DuelData.h"
 #include "MyProject/Enum/DirectionEnum.h"
 #include "MyProject/Enum/PlayerMovementState.h"
+#include "MyProject/Enum/ObtainItemMethod.h"
 #include "MyProject/Enum/ActionIndicatorEnum.h"
 #include "BoardController.generated.h"
 
 /**
  *
  */
+DECLARE_DELEGATE_OneParam(FDirectionMovementDelegate, ETileDirection);
+DECLARE_DELEGATE(FContinueFunction);
+
 UCLASS()
 class MYPROJECT_API ABoardController : public APlayerController
 {
 	GENERATED_BODY()
 
-		DECLARE_DELEGATE_OneParam(FDirectionMovementDelegate, ETileDirection);
 
 private:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), BlueprintGetter = "GetInventory")
 		class UInventoryComponent* InventoryComp;
 
 protected:
@@ -33,8 +36,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
 		TSubclassOf<class UPlayerTurnDisplay> TurnDisplayWidgetClass;
-
-	UPROPERTY(Replicated)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
+		TSubclassOf<class UStealCardWidget> StealCardWidgetClass;
+	
+	UPROPERTY(BlueprintReadOnly ,Replicated)
 		class APlayerControlPawn* BoardPlayer;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
@@ -62,13 +67,22 @@ protected:
 		class UDuelWidget* DuelWidget;
 
 	UPROPERTY(BlueprintReadWrite, Replicated)
+		class UObtainedItemUI* ObtainItemWidget;
+
+	UPROPERTY(BlueprintReadWrite, Replicated)
 		class UPlayersHealthWidget* PlayerHealthInfo;
+
+	UPROPERTY(BlueprintReadWrite, Replicated)
+		class UOverCapacityWidget* OverCapacityWidget;
 
 	FTimerHandle UIDelayTimerHandle;
 	float UIDelayTime = 0.2f;
 
 	int RemainingChallegeTimes = 1;
+
 public:
+	FContinueFunction ContinuePlayerAction;
+
 	ABoardController();
 
 	virtual void Tick(float DeltaTime) override;
@@ -90,6 +104,9 @@ public:
 
 	UFUNCTION(Server, Reliable)
 		void Server_ChangeCameraBehaviour(EMovementInputState NewInputState);
+
+	UFUNCTION()
+		void SetPlayerMovementStateToMoveState();
 
 	UFUNCTION(Server, Reliable)
 		void Server_DrawRoomTile();
@@ -145,14 +162,26 @@ public:
 
 	void DisplayDuelOption(APlayerControlPawn* DuelTarget, ABoardController* TargetController, bool IsPlayerTheAttacker);
 
+	UFUNCTION(BlueprintCallable, Client, Reliable)
+		void Client_DisplayOverCapacityUI(EObtainItemMethod ObtainMethod);
+
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 		void Client_ChangeIndicatorLayout(EActionLayout LayoutStyle);
 
 	UFUNCTION(Server, Reliable)
 		void Server_StartPlayerTurn();
 
+	UFUNCTION(Server, Reliable, BlueprintCallable)
+		void Server_RunDuelOutcome(EDuelResult DuelResult);
+
+	UFUNCTION(Client, Reliable)
+		void Client_StealOpponentInventory(const TArray<FItemData>& OpponentInventory);
+
 	UFUNCTION(Server, Reliable)
-		void Server_DuelDiceOutcome(EDuelResult DuelResult);
+		void Server_StealOpponentItem(FItemData OpponentInventory);
+
+	UFUNCTION(Server, Reliable)
+		void Server_RunPendingDuelOutcome();
 
 	UFUNCTION(Server, Reliable)
 		void Server_ChangeCameraPerspective(class ALockedCharacter* CurrentTurnPlayerCharacter);
@@ -162,25 +191,42 @@ public:
 	UFUNCTION(Server, Reliable)
 		void Server_ChangeTurn();
 
-	UFUNCTION(BlueprintCallable, Server, Reliable)
-		void Server_TakeDamage();
+	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 	UFUNCTION(Client, Reliable)
 		void Client_UpdatePlayerHealthInfo(const TArray<int>& UpdatedHealth);
 
-	UFUNCTION(Client, Reliable)
+	UFUNCTION(Server, Reliable)
 		void Server_UsedUpWeapon(FItemData WeaponData);
 
+	UFUNCTION(Server, Reliable)
+		void Server_TriggerTrapCard(FItemData TrapCard);
+
 	void CheckRoomForDualTarget();
+
+	void DrawCardFromDeck();
+
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+		void Server_ObtainItem(FItemData ObtainedItem, EObtainItemMethod ObtainMethod);
+	UFUNCTION(Client, Reliable)
+		void Client_DisplayObtainItem(FItemData ObtainedItem, EObtainItemMethod ObtainMethod);
+
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+		void Server_ContinueActionAfterObtainingItem();
+
+	void DropItemOnRoom(FItemData WeaponData);
 
 	FORCEINLINE bool IsPlayerReady() { return bIsReadyToStart; }
 	FORCEINLINE bool IsItPlayersTurn() { return bIsInTurn; }
 	FORCEINLINE bool IsPlayerTheDuelAttacker() { return bIsTheAttacker; }
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintPure)
 		FORCEINLINE int GetRemainingChallegeTimes() { return RemainingChallegeTimes; }
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintPure)
 		FORCEINLINE UDuelOption* GetDuelWidget() { return DuelOptionWidget; }
-	ALockedCharacter* GetPlayerCharacter();
+	UFUNCTION(BlueprintPure)
+		FORCEINLINE UInventoryComponent* GetInventory() { return InventoryComp; }
+	UFUNCTION(BlueprintPure)
+		ALockedCharacter* GetPlayerCharacter();
 
 	//int GetAvailableMove();
 };

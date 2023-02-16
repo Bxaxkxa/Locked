@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "MyProject/Struct/DoorWayStruct.h"
+#include "MyProject/Struct/CardStruct.h"
 #include "MyProject/Enum/DirectionEnum.h"
 #include "MyProject/Enum/PlayerMovementState.h"
 #include "PlayerControlPawn.generated.h"
@@ -94,6 +95,13 @@ public:
 	void DuelCheck(ALockedCharacter* DuelTarget);
 	UFUNCTION(BlueprintCallable)
 		bool CheckRoomForDualTarget();
+
+	void DropItemOnCurrentRoom(FItemData ItemData);
+	UFUNCTION(BlueprintCallable)
+		void UpdateCurrentRoomDropItemData();
+
+	UFUNCTION(BlueprintCallable)
+		bool PickupItemOnCurrentRoom();
 
 	void CheckMovePoint();
 

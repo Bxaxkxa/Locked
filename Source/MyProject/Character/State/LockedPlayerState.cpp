@@ -10,9 +10,9 @@ ALockedPlayerState::ALockedPlayerState()
 	SetReplicates(true);
 }
 
-void ALockedPlayerState::TakeDamage_Implementation()
+float ALockedPlayerState::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	Health--;
+	Health -= DamageAmount;
 
 	AMyProjectGameMode* GameMode = Cast<AMyProjectGameMode>(GetWorld()->GetAuthGameMode());
 	GameMode->UpdatePlayerHealthInfo();
@@ -25,6 +25,8 @@ void ALockedPlayerState::TakeDamage_Implementation()
 	{
 		//TO DO: Death
 	}
+
+	return Health;
 }
 
 void ALockedPlayerState::Server_ChangePlayerCameraBehaviour_Implementation()
