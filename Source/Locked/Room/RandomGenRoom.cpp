@@ -28,9 +28,7 @@ void ARandomGenRoom::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-
-	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Emerald, FString::FromInt(TotalTileCount));
-
+	//GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Emerald, FString::FromInt(TotalTileCount));
 }
 
 int ARandomGenRoom::GetAllRemainingTileCount()

@@ -8,6 +8,7 @@
 #include "Locked/GameMode/MyProjectGameMode.h"
 #include "Locked/GameState/LockedGameState.h"
 #include "Locked/Room/MainRoomTile.h"
+#include "Locked/MiscActor/OffScreenIndicator.h"
 #include "Locked/Widget/PlayerActionWidget.h"
 #include "Locked/Widget/PlayerTurnDisplay.h"
 #include "Locked/Widget/DuelOption.h"
@@ -21,6 +22,7 @@
 #include "Locked/Widget/InventoryWidget.h"
 #include "Locked/Widget/TextMessageWidget.h"
 #include "Locked/Widget/PawDuplication.h"
+#include "Locked/Widget/OffScreenIndicatorWidget.h"
 #include "Locked/Room/RoomTile.h"
 #include "State/LockedPlayerState.h"
 #include "Kismet/GameplayStatics.h"
@@ -115,7 +117,10 @@ void ABoardController::Client_AddAllGUIToViewport_Implementation()
 	MovePointIndicator->AddToViewport(2);
 	TextMessageWidget->AddToViewport(4);
 	PawDuplicationWidget->AddToViewport(3);
+	OffScreenWidget->AddToViewport(2);
 
+	Client_AddAllPlayerLocationInfo();
+	OffScreenWidget->DrawIndicator();
 	SetupHealthInfo();
 }
 
@@ -132,6 +137,17 @@ void ABoardController::Client_ShowActionWidget_Implementation(bool On)
 	if (ActionUIWidget)
 	{
 		On ? ActionUIWidget->SetVisibility(ESlateVisibility::SelfHitTestInvisible) : ActionUIWidget->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
+
+void ABoardController::Client_AddAllPlayerLocationInfo_Implementation()
+{
+	TArray<AActor*> OutActor;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AOffScreenIndicator::StaticClass(), OutActor);
+	for (AActor* it : OutActor)
+	{
+		AOffScreenIndicator* PlayerInfo = Cast<AOffScreenIndicator>(it);
+		OffScreenWidget->AddPlayerInfo(PlayerInfo);
 	}
 }
 
@@ -216,7 +232,7 @@ void ABoardController::Client_RemoveInventoryWidget_Implementation()
 void ABoardController::Client_SetControllerInputMode_Implementation(bool bIsForGameOnly)
 {
 	//SetInputMode(FInputModeGameAndUI());
-	bIsForGameOnly ? SetInputMode(FInputModeGameOnly ()) : SetInputMode(FInputModeGameAndUI());
+	bIsForGameOnly ? SetInputMode(FInputModeGameOnly()) : SetInputMode(FInputModeGameAndUI());
 }
 
 void ABoardController::Server_ChangeCameraBehaviour_Implementation(EMovementInputState NewInputState)

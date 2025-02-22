@@ -58,7 +58,7 @@ protected:
 
 	UPROPERTY(BlueprintReadWrite, Replicated)
 		class UPlayerActionWidget* ActionUIWidget;
-
+	
 	UPROPERTY(BlueprintReadWrite, Replicated)
 		class UInventoryWidget* InventoryWidget;
 
@@ -92,6 +92,9 @@ protected:
 	UPROPERTY(BlueprintReadWrite)
 		class UUserWidget* MovePointIndicator;
 
+	UPROPERTY(BlueprintReadWrite, Replicated)
+		class UOffScreenIndicatorWidget* OffScreenWidget;
+
 	FTimerHandle UIDelayTimerHandle;
 	float UIDelayTime = 0.2f;
 
@@ -117,6 +120,9 @@ public:
 
 	UFUNCTION(Client, Reliable)
 		void Client_AddAllGUIToViewport();
+
+	UFUNCTION(Client, Reliable)
+		void Client_AddAllPlayerLocationInfo();
 
 	UFUNCTION(Client, Reliable)
 		void Client_ShowActionWidget(bool On);

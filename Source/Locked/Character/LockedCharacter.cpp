@@ -5,6 +5,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Locked/Room/MainRoomTile.h"
+#include "Locked/MiscActor/OffScreenIndicator.h"
 #include "LockedAIController.h"
 #include "PlayerControlPawn.h"
 #include "Kismet/GameplayStatics.h"
@@ -32,6 +33,13 @@ void ALockedCharacter::BeginPlay()
 void ALockedCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+}
+
+void ALockedCharacter::SpawnPawnIndicatorActor()
+{
+	UWorld* World = GetWorld();
+	AOffScreenIndicator* SpawnedIndicator = World->SpawnActor<AOffScreenIndicator>();
+	SpawnedIndicator->AttachToActor(this, FAttachmentTransformRules::SnapToTargetIncludingScale);
 }
 
 // Called to bind functionality to input
